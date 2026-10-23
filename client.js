@@ -564,7 +564,7 @@ window.__ModuleLoader__.load({
             + '只补长、不缩短；撞限流会自动歇着，断点存着，随时停随时接着跑。'),
           st?.longtext
             ? h('div', { 'data-qz-note': '' },
-              `候选 ${fmt(st.longtext.candidates || 0)} 条 · 已核对 ${fmt(st.longtext.checked || 0)} 条 · 补全过 ${fmt(st.longtext.expanded || 0)} 篇`
+              `${st.longtext.enabled ? '补全中' : '待机'} · 候选 ${fmt(st.longtext.total || 0)} 条 · 已核对 ${fmt(st.longtext.checked || 0)} 条 · 补全过 ${fmt(st.longtext.expanded || 0)} 篇`
               + (st.longtext.lastError ? ` · 上次被挡：${st.longtext.lastError}` : '')
               + (st.longtext.nextRetryAt ? `（${new Date(st.longtext.nextRetryAt).toLocaleString('zh-CN')} 后再试）` : ''))
             : null,
