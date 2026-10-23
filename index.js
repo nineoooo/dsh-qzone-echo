@@ -31,10 +31,10 @@ import { join } from 'node:path'
 import {
   ensureHome, paths, getConfig, saveConfig, getCredential, clearCredential, maskCookie, DEFAULT_CONFIG,
   loadAll, loadThoughts, loadDreams, exportMarkdown, exportJson, statOf, homeDir, recomputeThoughts,
-  purgeOwner, owners, setOverride, clearOverrides, loadOverrides, loadReviews, logLine,
+  purgeOwner, owners, setOverride, clearOverrides, loadOverrides, loadCategoryOverrides, loadReviews, logLine,
 } from './lib/store.mjs'
 import { syncOnce, saveCookie, stats, openSession, applyThreshold, autoSyncOnce, shouldAutoRun, autoState } from './lib/sync.mjs'
-import { classify, isThought, isDream, isReview } from './lib/classify.mjs'
+import { classify, isThought, isDream, isReview, CLASSIFY_VERSION } from './lib/classify.mjs'
 import { downloadImages, imageStats } from './lib/images.mjs'
 import { page } from './lib/web.mjs'
 import {
@@ -321,7 +321,7 @@ export function apply(ctx, config, cfgIn) {
 
   tool({
     name: 'qzone_echo_fix',
-    description: '人工纠正某一条的分类：说它「算思考」或「不算思考」；也能撤销。\n'
+    description: '人工纠正某一条的思考、梦记或推荐分类；也能撤销。\n'
       + '规则永远会误判（比如只是分享绘本、只是发张图），这条纠正会写进 corrections.jsonl，'
       + '**永远压过自动打分**，之后重算/重同步都不会被翻回去。\n'
       + '撤销有两种：给 tid + undo=true 撤掉某一条；给 undoAll=true 把全部手改记录清空、回到自动判。\n'
@@ -329,6 +329,8 @@ export function apply(ctx, config, cfgIn) {
     parameters: {
       tid: { type: 'string', description: '要改哪一条（tid 或 id）' },
       thought: { type: 'boolean', description: 'true=算思考；false=不算思考（撤销时不用给）' },
+      category: { type: 'string', description: 'thought（默认）/ dream / review' },
+      value: { type: 'boolean', description: 'true=属于该类；false=不属于该类；支持旧 thought 参数' },
       note: { type: 'string', description: '为什么改（可省，给自己留个记录）' },
       undo: { type: 'boolean', description: 'true=撤销这一条的人工纠正，回到按规则自动判' },
       undoAll: { type: 'boolean', description: 'true=清空全部人工纠正（误点一堆时用）' },
@@ -347,11 +349,13 @@ export function apply(ctx, config, cfgIn) {
       if (!hit) hit = all.find((m) => String(m.tid) === tid)
       if (!hit) return { ok: false, error: `库里没有这条：${tid}` }
       if (args.undo === true) {
-        const r = setOverride(hit.id || tid, null)
+        const r = setOverride(hit.id || tid, null, '', args.category || 'all')
         return { ...r, tid: hit.tid, message: '撤销了，这条回到按规则自动判。' }
       }
-      if (args.thought === undefined) return { ok: false, error: '要给 thought（true / false），或者给 undo=true' }
-      const r = setOverride(hit.id || tid, args.thought === true, args.note)
+      const category = args.category || 'thought'
+      const value = args.value !== undefined ? args.value : args.thought
+      if (typeof value !== 'boolean') return { ok: false, error: '要给 value（true / false），或者给 undo=true' }
+      const r = setOverride(hit.id || tid, value, args.note, category)
       return { ...r, tid: hit.tid, content: String(hit.content || '').slice(0, 80) }
     },
   })
@@ -518,7 +522,7 @@ export function apply(ctx, config, cfgIn) {
     if (path === '/lock' && req.method === 'GET') {
       const port = req.socket?.localPort
       const webUrl = Number.isInteger(port) && port > 0 ? 'http://127.0.0.1:' + port + webEntryPath() : null
-      return sendJson(res, 200, { ok: true, ...passMeta(), sessions: sessionCount(), webPath: webEntryPath(), webUrl, contentRepairVersion: 2, writingStatsVersion: 1, pictureCompletionVersion: 3, imagePartialSaveSupported: completeMissingPictures.toString().includes('partial = 0') })
+      return sendJson(res, 200, { ok: true, ...passMeta(), sessions: sessionCount(), webPath: webEntryPath(), webUrl, contentRepairVersion: 2, writingStatsVersion: 1, pictureCompletionVersion: 3, classificationVersion: CLASSIFY_VERSION, categoryCorrections: true, imagePartialSaveSupported: completeMissingPictures.toString().includes('partial = 0') })
     }
 
     if (path === '/lock' && req.method === 'POST') {
@@ -715,20 +719,25 @@ export function apply(ctx, config, cfgIn) {
       const hit = all.find((m) => m.id === tid) || all.find((m) => String(m.tid) === tid)
       if (!hit) return sendJson(res, 404, { ok: false, error: `库里没有这条：${tid}` })
       // ② 撤销单条：thought 传 null / 或 undo: true
-      const undo = body.undo === true || body.thought === null
-      const r = setOverride(hit.id || tid, undo ? null : body.thought === true, String(body.note || ''))
-      return sendJson(res, r.ok ? 200 : 400, { ...r, tid: hit.tid })
+      const category = body.category || 'thought'
+      if (!['thought', 'dream', 'review'].includes(category)) return sendJson(res, 400, { ok: false, error: '不支持的分类' })
+      const value = Object.hasOwn(body, 'value') ? body.value : body[category]
+      const undo = body.undo === true || value === null
+      if (!undo && typeof value !== 'boolean') return sendJson(res, 400, { ok: false, error: '请给 true、false 或撤销操作' })
+      const r = setOverride(hit.id || tid, undo ? null : value, String(body.note || ''), body.undo === true && !body.category ? 'all' : category)
+      const item = r.ok ? loadAll().find(m => m.id === hit.id) : null
+      return sendJson(res, r.ok ? 200 : 400, { ...r, tid: hit.tid, item: item ? shape(item, true) : null })
     }
 
     // 手改过哪些条（页面上要能一条条看、一条条撤）
     if (path === '/corrections' && req.method === 'GET') {
-      const ov = loadOverrides()
+      const ov = loadCategoryOverrides()
       const all = loadAll()
       const byId = new Map(all.map((m) => [m.id || String(m.tid), m]))
-      const items = [...ov.entries()].map(([id, thought]) => {
+      const items = [...ov.entries()].map(([id, fields]) => {
         const m = byId.get(id)
         return {
-          id, thought,
+          id, ...fields,
           tid: m?.tid || '', time: m?.time || '',
           content: String(m?.content || '').slice(0, 90),
           score: m?.score ?? null, kind: m?.kind || '',
@@ -1032,6 +1041,7 @@ function shape(m, full = true) {
     reasons: m.reasons,
     thought: Boolean(m.thought),
     dream: Boolean(m.dream),
+    overrides: Object.fromEntries(['thought', 'dream', 'review'].filter(field => typeof m[field + 'Override'] === 'boolean').map(field => [field, m[field + 'Override']])),
     images: (m.images || []).length,
     comments: (m.comments || []).length,
     replies: (m.comments || []).reduce((n, c) => n + (c.replies?.length || 0), 0),
