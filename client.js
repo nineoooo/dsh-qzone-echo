@@ -639,7 +639,7 @@ window.__ModuleLoader__.load({
           h('div', { 'data-qz-row': '' },
             h('button', { 'data-qz-btn': '', 'data-primary': '', onClick: openWeb }, '打开网页版 ↗')),
           h('div', { 'data-qz-note': '' },
-            '浏览、搜索正文/评论/转发、逐条改判「算/不算思考」、导出 Markdown / JSON、看配图 —— 全在网页版里。'
+            '浏览、搜索正文/评论/转发、纠正「思考／梦记／推荐」分类、导出 Markdown / JSON、看配图 —— 全在网页版里。'
             + '设置页只管设置，不再把说说正文铺在这里（也就不会再占设置页的内存）。'),
           h('div', { 'data-qz-note': '' },
             `导出文件会落在：${st?.exportDir || '家目录/out'}（网页版点「导出」也会告诉你路径，可以直接打开看）。`),
@@ -652,7 +652,7 @@ window.__ModuleLoader__.load({
             h('div', { 'data-qz-note': '' },
               '这些不受分数线管、也不受规则升级影响。点错了就在这里撤掉，撤掉后回到「按规则自动判」。'),
             h('div', { 'data-qz-fixed': '' }, ...fixList.slice(0, 20).map((f) => h('div', { key: f.id, 'data-qz-fixedrow': '' },
-              h('span', { 'data-qz-badge': '' }, f.thought ? '算思考' : '不算'),
+              h('span', { 'data-qz-badge': '' }, ['thought','dream','review'].filter(k => typeof f[k] === 'boolean').map(k => (f[k] ? '是' : '不是') + ({thought:'思考',dream:'梦记',review:'推荐'}[k])).join('、')),
               h('span', { 'data-qz-grow': '' }, `${String(f.time || '').slice(0, 16)} ${f.content || '(无正文)'}`),
               h('button', { 'data-qz-mini': '', disabled: busy === 'fix', onClick: () => onUndo(f.id) }, '撤销')))),
             h('div', { 'data-qz-row': '' },

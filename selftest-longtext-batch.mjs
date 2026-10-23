@@ -18,7 +18,7 @@ store.writeFeed([
  {tid:'long2',owner:'123456',content:'丙'.repeat(400)+'……'},
  {tid:'short',owner:'123456',content:'短的开头'},
  {tid:'a',owner:'654321',content:'其他账号'},
- {tid:'deleted',owner:'123456',content:'已删除原文',gone:true},
+ {tid:'gone',owner:'123456',content:'查不到原文的帖子'},
 ])
 assert.equal(repair.repairStatus().total,3) // 候选集只认那三条，短帖不进队
 assert.equal(repair.repairStatus().remaining,3)
@@ -55,9 +55,9 @@ assert.equal(r.expanded,2)
 assert.equal(store.loadAll().find(m=>m.tid==='b').content,'乙'.repeat(500)) // 详情更短 → 原文一字不动
 assert.equal(store.loadAll().find(m=>m.tid==='long2').content,long2full)  // 省略号收尾的确实补上了
 assert.equal(store.loadAll().find(m=>m.tid==='short').content,'短的开头') // 短帖没被碰
-assert.equal(store.loadAll().find(m=>m.tid==='deleted').content,'已删除原文')
+assert.equal(store.loadAll().find(m=>m.tid==='gone').content,'查不到原文的帖子')
 assert.equal(calls,before+3) // 补过的 a 不再问第二次，短的 short 一次都没问
 // 补过之后不该再被当成候选重新排队（否则会无限循环查同一批）
 assert.equal(repair.repairStatus().remaining,0)
 assert.equal(content.looksTruncated(store.loadAll().find(m=>m.tid==='a')),false)
-console.log('PASS: truncated-only queue, short previews skipped, checked posts, resume, backup, no shortening, owner isolation, deleted preservation, throttle cooldown, pause')
+console.log('PASS: truncated-only queue, short previews skipped, checked posts, resume, backup, no shortening, owner isolation, missing-post preservation, throttle cooldown, pause')

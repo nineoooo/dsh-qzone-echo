@@ -184,7 +184,7 @@
   }
   function card(m, terms){
     var h = [];
-    h.push('<div class="card" data-tid="' + esc(m.tid) + '">');
+    h.push('<div class="card" data-tid="' + esc(m.tid) + '" data-id="' + esc(m.id || m.tid) + '">');
     h.push('<div class="head">');
     h.push('<span class="time">' + esc(fmtTime(m.time)) + '</span>');
     h.push('<span class="tag words" data-plain="' + (m.wordCount || 0) + '" data-punct="' + (m.wordCountWithPunctuation || 0) + '">' + (state.punctuation ? m.wordCountWithPunctuation || 0 : m.wordCount || 0) + ' 字' + (m.contentIncomplete ? '（已收集）' : '') + '</span>');
@@ -243,6 +243,12 @@
     h.push(m.thought
       ? '<button data-act="unthink">不算思考</button>'
       : '<button data-act="think">算思考</button>');
+    if(m.dream) h.push('<button data-act="not-dream">不是梦</button>');
+    if(m.kind === 'review') h.push('<button data-act="not-review">不是推荐</button>');
+    var ov = m.overrides || {};
+    ['thought','dream','review'].forEach(function(k){
+      if(typeof ov[k] === 'boolean') h.push('<button data-act="undo-' + k + '">恢复' + ({thought:'思考',dream:'梦记',review:'推荐'}[k]) + '自动判定</button>');
+    });
     h.push('</div></div>');
     return h.join('');
   }
@@ -349,25 +355,18 @@
     }
     syncMeta();
   }
-  function applyFixLocal(cardEl, want){
-    if(!cardEl) return;
-    // 只有「在思考栏里把这条踢出思考」会让它离开当前列表；搜索态是全库搜，不离开
-    var leaves = !state.q && state.scope === 'thoughts' && !want;
+  function applyFixLocal(cardEl, item){
+    if(!cardEl || !item) return;
+    var leaves = !state.q && ((state.scope === 'thoughts' && !item.thought)
+      || (state.scope === 'dreams' && !item.dream)
+      || (state.scope === 'reviews' && item.kind !== 'review'));
+    state.items = state.items.map(function(m){ return (m.id || m.tid) === (item.id || item.tid) ? item : m });
     if(leaves){
       dropCard(cardEl);
       return;
     }
-    var acts = cardEl.querySelector('.acts');
-    if(acts) acts.innerHTML = want
-      ? '<button data-act="unthink">不算思考</button>'
-      : '<button data-act="think">算思考</button>';
-    var head = cardEl.querySelector('.head');
-    var tag = head ? head.querySelector('.tag.t') : null;
-    var tm = head ? head.querySelector('.time') : null;
-    if(want && head && !tag && tm){
-      tag = document.createElement('span'); tag.className = 'tag t'; tag.textContent = '思考';
-      head.insertBefore(tag, tm.nextSibling);
-    } else if(!want && tag){ tag.remove() }
+    var terms = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    cardEl.outerHTML = card(item, terms);
     syncMeta();
   }
   var writingRequest = 0;
@@ -440,30 +439,43 @@
   });
   list.addEventListener('click', function(e){
     var b = e.target.closest('button[data-act]'); if(!b) return;
-    var cardEl = b.closest('.card'), tid = cardEl.dataset.tid;
+    var cardEl = b.closest('.card'), tid = cardEl.dataset.id || cardEl.dataset.tid;
     var act = b.dataset.act;
-    if(act === 'complete-pictures'){ completePictures(tid, b); return }
+    if(act === 'complete-pictures'){ completePictures(cardEl.dataset.tid, b); return }
 
-    var want = act === 'think';
+    var actions = {
+      think:{category:'thought',value:true,label:'算思考'},
+      unthink:{category:'thought',value:false,label:'不算思考'},
+      'not-dream':{category:'dream',value:false,label:'不是梦'},
+      'not-review':{category:'review',value:false,label:'不是推荐'}
+    };
+    var action = actions[act];
+    if(act.indexOf('undo-') === 0){
+      var category = act.slice(5);
+      if(['thought','dream','review'].indexOf(category) < 0) return;
+      action = {category:category,value:null,label:'恢复' + ({thought:'思考',dream:'梦记',review:'推荐'}[category]) + '自动判定'};
+    }
+    if(!action || b.disabled) return;
     // 两下确认：第一下只上膛，5 秒内第二下才真发
     if(b.dataset.arm !== '1'){
       b.dataset.arm = '1';
       b.textContent = '再点一下确认';
-      setTimeout(function(){ if(b.dataset.arm === '1'){ b.dataset.arm = ''; b.textContent = want ? '算思考' : '不算思考' } }, 5000);
+      setTimeout(function(){ if(b.dataset.arm === '1'){ b.dataset.arm = ''; b.textContent = action.label } }, 5000);
       return;
     }
     b.dataset.arm = '';
+    b.disabled = true;
     b.textContent = '提交中…';
     fetch(API + '/fix', {
       method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ tid: tid, thought: want }),
+      body: JSON.stringify({ tid: tid, category:action.category, value:action.value }),
     }).then(function(r){ return r.json() }).then(function(d){
       if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
-      toast('已改成「' + (want ? '算思考' : '不算思考') + '」');
-      applyFixLocal(cardEl, want); counts();
+      toast('已保存：' + action.label);
+      applyFixLocal(cardEl, d.item); counts();
     }).catch(function(err){
       toast('失败：' + err.message);
-      b.textContent = want ? '算思考' : '不算思考';
+      b.disabled = false; b.textContent = action.label;
     });
   });
   $('#btnSearch').addEventListener('click', function(){ state.q = $('#q').value; load(true) });

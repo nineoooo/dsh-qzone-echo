@@ -11,13 +11,13 @@ function fixture(rows){
  store.saveCredential('uin=o0123456; p_skey=synthetic','123456')
  store.writeFeed(rows.map(tid=>({owner:'123456',tid,content:'保留全文',picTotal:13,images:urls.slice(0,9)})))
 }
-fixture(['a','b','partial','deleted'])
+fixture(['a','b','partial','gone'])
 let calls=0
 const request=async(_jar,_owner,tid)=>{
  calls++
  if(tid==='b')job.configureImageJob('pause') // Pause while the current post is in flight.
  if(tid==='partial')return{ok:true,urls:urls.slice(0,10)}
- if(tid==='deleted')return{ok:false,code:-10029,error:'已删除'}
+ if(tid==='gone')return{ok:false,code:-10029,error:'说说不存在'}
  return{ok:true,urls}
 }
 assert.equal(job.configureImageJob('start').total,4)
@@ -33,7 +33,7 @@ r=await job.runImageJobTick({request})
 assert.equal(r.processed,4);assert.equal(r.repaired,2);assert.equal(r.addedImages,9)
 assert.equal(r.status,'completed_with_gaps');assert.equal(r.remainingMissing,2)
 assert.equal(store.loadAll().find(m=>m.tid==='partial').images.length,10)
-assert.equal(store.loadAll().find(m=>m.tid==='deleted').content,'保留全文')
+assert.equal(store.loadAll().find(m=>m.tid==='gone').content,'保留全文')
 assert.equal(job.configureImageJob('start').total,2) // A new run can revisit outstanding gaps.
 fixture(['limited','next'])
 job.configureImageJob('start');let limitedCalls=0

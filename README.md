@@ -16,18 +16,23 @@
 
 ## 判错了怎么办（人工纠正）
 
-规则永远会误判（比如只是发张图、只是转述绘本简介）。设置页每张卡右上角有个小按钮：
-**「不算思考」/「算思考」**。
+规则永远会误判（比如只是发张图、只是转述绘本简介）。三栏都能手改：
+
+- **思考**：「算思考」/「不算思考」
+- **梦记**：被认成梦了但其实是随手记的 —— 「不是梦」
+- **介绍/推荐**：其实是在说自己的感受 —— 「不是推荐」
 
 ⚠️ **要点两下才生效**：第一次点只是「上膛」（按钮变成黄色「再点一下确认」），
 再点一次才真的写进 `corrections.jsonl`；点了别处、或等 5 秒，上膛状态自己泄掉。
 这样手滑一下不会把数据改坏。
 
 改错了怎么办？设置页有一栏 **「⑧ 你手动改过的」**：
-- 每条改过的都列在那儿（时间 + 正文），点「撤销」回到按规则自动判
+- 每条改过的都列在那儿（改的是哪一栏 + 时间 + 正文），点「撤销」回到按规则自动判
 - 整个改歪了就点「全部撤销（回到自动判）」，`corrections.jsonl` 清空
+- 网页版上改错了，卡片上会多一个「恢复思考/梦记/推荐自动判定」的按钮，点它就行
 
-对话里也能用 `qzone_echo_fix`（`tid` + `thought` 改；`undo: true` 撤单条；`undoAll: true` 全撤）。
+对话里也能用 `qzone_echo_fix`（`tid` + `category`（`thought`/`dream`/`review`）+ `value`（`true`/`false`）改；
+`undo: true` 撤单条；`undoAll: true` 全撤；旧的 `tid` + `thought` 写法照样能用）。
 
 ## 网页版（看的时候最舒服）
 
@@ -206,9 +211,11 @@
 | `qzone_echo_list` | 按年份 / 关键词 / 类型翻（`kind=dream` 只翻梦记，`kind=review` 只翻介绍/推荐） |
 | `qzone_echo_thoughts` | 只拿「思考」候选（分数从高到低） |
 | `qzone_echo_dreams` | 只拿「梦记」（时间倒序） |
-| `qzone_echo_fix` | 人工纠正一条「算 / 不算思考」，或撤销（`undo` / `undoAll`） |
+| `qzone_echo_fix` | 人工纠正一条的思考 / 梦记 / 推荐分类（`category` + `value`），或撤销（`undo` / `undoAll`） |
 | `qzone_echo_export` | 导出 Markdown / JSON（`scope=thoughts/dreams/reviews/all`） |
 | `qzone_echo_images` | 把配图下到本地（`dryRun: true` 只统计不下） |
+| `qzone_echo_image_job` | 后台慢慢补配图，断点续跑（`start` / `pause` / `status`） |
+| `qzone_echo_complete_images` | 补全一条说说里存漏了的图（一次一条，`tid` 指定） |
 | `qzone_echo_purge` | 删掉某个号的全部说说（不传 `apply` 只预览） |
 
 ## 导出的两种格式看什么
