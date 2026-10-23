@@ -6,8 +6,6 @@ node_modules/
 credential.json
 webpass.json
 websessions.json
-harvest.json
-harvest.jsonl
 longtext-repair-state.json
 
 # --- 临时 / 草稿 ---
