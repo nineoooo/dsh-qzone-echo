@@ -1,0 +1,20 @@
+# --- 依赖 ---
+node_modules/
+
+# --- 运行时数据 / 凭证（绝不入库）---
+*.jsonl
+credential.json
+webpass.json
+websessions.json
+harvest.json
+harvest.jsonl
+longtext-repair-state.json
+
+# --- 临时 / 草稿 ---
+_*.mjs
+_*.js
+*.log
+
+# --- 系统 ---
+.DS_Store
+Thumbs.db
