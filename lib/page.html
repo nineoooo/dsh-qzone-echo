@@ -131,8 +131,7 @@
     {k:'all',      n:'全部'},
     {k:'thoughts', n:'思考 / 感想'},
     {k:'dreams',   n:'梦记'},
-    {k:'reviews',  n:'介绍 / 推荐'},
-    {k:'deleted',  n:'已删除'}
+    {k:'reviews',  n:'介绍 / 推荐'}
   ];
   var state = { scope:'all', q:'', year:'', month:'', punctuation:false, writing:null, offset:0, limit:30, total:0, items:[] };
   var $  = function(s){ return document.querySelector(s) };
@@ -188,12 +187,10 @@
     h.push('<div class="card" data-tid="' + esc(m.tid) + '">');
     h.push('<div class="head">');
     h.push('<span class="time">' + esc(fmtTime(m.time)) + '</span>');
-    h.push('<span class="tag words" data-plain="' + (m.wordCount || 0) + '" data-punct="' + (m.wordCountWithPunctuation || 0) + '">' + (state.punctuation ? m.wordCountWithPunctuation || 0 : m.wordCount || 0) + ' 字' + (m.contentIncomplete || m.truncated ? '（已收集）' : '') + '</span>');
+    h.push('<span class="tag words" data-plain="' + (m.wordCount || 0) + '" data-punct="' + (m.wordCountWithPunctuation || 0) + '">' + (state.punctuation ? m.wordCountWithPunctuation || 0 : m.wordCount || 0) + ' 字' + (m.contentIncomplete ? '（已收集）' : '') + '</span>');
     if(m.thought) h.push('<span class="tag t">思考</span>');
     if(m.dream)   h.push('<span class="tag d">梦记</span>');
     if(m.kind === 'review') h.push('<span class="tag r">介绍/推荐</span>');
-    if(m.gone)     h.push('<span class="tag del" title="逐条验活时腾讯明确回了「该条内容已被删除」">已删除</span>');
-    else if(m.recovered) h.push('<span class="tag del" title="已经从空间删掉了，正文只有历史消息里的摘要">已删除</span>');
     if((m.comments||0) > 0) h.push('<span class="tag">评 ' + m.comments +
       (m.replies ? ' · 回 ' + m.replies : '') + '</span>');
     // 正文不全：腾讯对超长说说只给前 500 字。如实标出来，别让人以为原文就这么短。
@@ -243,17 +240,9 @@
       h.push('</div>');
     }
     h.push('<div class="acts">');
-    if(m.recovered || m.gone){
-      // 「已删除」栏的两种来源：①历史消息补回来的摘要 ②验活查出真没了的本地全文。
-      // 两者都可能是误判（本地没同步过那个年份、删了重发、正文改过），所以都给一个手动出口。
-      if(m.gone) h.push('<span class="why">验活查出已删</span>');
-      else h.push('<span class="why">历史消息里翻到的摘要</span>');
-      h.push('<button data-act="dismiss">这条其实没删 / 是重复的</button>');
-    } else {
-      h.push(m.thought
-        ? '<button data-act="unthink">不算思考</button>'
-        : '<button data-act="think">算思考</button>');
-    }
+    h.push(m.thought
+      ? '<button data-act="unthink">不算思考</button>'
+      : '<button data-act="think">算思考</button>');
     h.push('</div></div>');
     return h.join('');
   }
@@ -381,9 +370,6 @@
     } else if(!want && tag){ tag.remove() }
     syncMeta();
   }
-  function applyDismissLocal(cardEl){
-    if(cardEl) dropCard(cardEl);
-  }
   var writingRequest = 0;
   function renderWriting(){
     var d = state.writing; if(!d) return;
@@ -435,7 +421,7 @@
   function counts(){
     fetch(API + '/status').then(function(r){ return r.json() }).then(function(d){
       var c = d && d.library ? {thoughts:d.library.thoughts, dreams:d.library.dreams,
-        reviews:d.library.reviews, deleted:d.library.deleted, all:d.library.total} : null;
+        reviews:d.library.reviews, all:d.library.total} : null;
       buildTabs(c);
       if(d && d.library){
         // 年份用顶层 years（数组、已倒序）；library.years 是「按年条数」的对象，不能直接 map
@@ -457,28 +443,6 @@
     var cardEl = b.closest('.card'), tid = cardEl.dataset.tid;
     var act = b.dataset.act;
     if(act === 'complete-pictures'){ completePictures(tid, b); return }
-
-    // 「已删除」栏的出口：这条其实没删／是重复的 → 移出去（不再算已删除）
-    if(act === 'dismiss'){
-      if(b.dataset.arm !== '1'){
-        b.dataset.arm = '1'; b.textContent = '再点一下，移到外面去';
-        setTimeout(function(){ if(b.dataset.arm === '1'){ b.dataset.arm = ''; b.textContent = '这条其实没删 / 是重复的' } }, 5000);
-        return;
-      }
-      b.dataset.arm = ''; b.textContent = '提交中…';
-      fetch(API + '/dismiss', {
-        method:'POST', headers:{'content-type':'application/json'},
-        body: JSON.stringify({ tid: tid }),
-      }).then(function(r){ return r.json() }).then(function(d){
-        if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
-        toast('移出去了，这条不再算「已删除」');
-        applyDismissLocal(cardEl); counts();
-      }).catch(function(err){
-        toast('失败：' + err.message);
-        b.textContent = '这条其实没删 / 是重复的';
-      });
-      return;
-    }
 
     var want = act === 'think';
     // 两下确认：第一下只上膛，5 秒内第二下才真发
