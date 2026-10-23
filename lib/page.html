@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+<meta name="referrer" content="no-referrer">
+<title>QQ说说收集</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --panel2:#1c2129; --line:#262c36;
+    --txt:#e6e9ef; --dim:#8b94a3; --acc:#3ba9ff; --warm:#f59e0b; --ok:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:14px/1.65 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{position:sticky;top:0;z-index:9;background:rgba(15,17,21,.92);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 20px 0}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0 14px 0 0;font-weight:650;letter-spacing:.3px}
+  .tabs{display:flex;gap:4px;margin:10px 0 0;flex-wrap:wrap}
+  .tab{padding:7px 14px;border-radius:9px 9px 0 0;cursor:pointer;color:var(--dim);
+    border:1px solid transparent;border-bottom:none;font-size:13px;user-select:none}
+  .tab:hover{color:var(--txt);background:var(--panel)}
+  .tab.on{background:var(--bg);border-color:var(--line);color:var(--txt);font-weight:600;
+    box-shadow:0 -2px 0 var(--acc) inset}
+  .tab b{color:var(--dim);font-weight:400;font-size:11px;margin-left:4px}
+  input,select,button{font:inherit;color:var(--txt);background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:6px 10px;outline:none}
+  input:focus{border-color:var(--acc)}
+  #q{min-width:260px;flex:1;max-width:420px}
+  button{cursor:pointer}
+  button:hover{border-color:#3a4453;background:#232a34}
+  button.pri{background:#1e4b73;border-color:#2b6da3}
+  button.pri:hover{background:#245a8a}
+  main{padding:16px 20px 60px;max-width:1080px;margin:0 auto}
+  .writing{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--panel);margin-bottom:16px}
+  .writing h2{margin:0 0 5px;font-size:15px}.writing .note{color:var(--dim);font-size:12px;margin:6px 0}
+  .writing .periods{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.writing .periods button{font-size:12px;text-align:left}
+  .writing strong{color:var(--acc);font-variant-numeric:tabular-nums}
+  .meta{color:var(--dim);font-size:12px;margin:0 0 14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;margin:0 0 12px}
+  .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .time{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:1px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+  .tag.t{color:#7dd3fc;border-color:#1e4b73;background:rgba(59,169,255,.08)}
+  .tag.d{color:#c4b5fd;border-color:#4c3f8f;background:rgba(167,139,250,.08)}
+  .tag.r{color:#86efac;border-color:#25603a;background:rgba(34,197,94,.08)}
+  .tag.del{color:#fca5a5;border-color:#7f3030;background:rgba(239,68,68,.08)}
+  .score{margin-left:auto;font-size:12px;color:var(--dim)}
+  .txt{white-space:pre-wrap;word-break:break-word}
+  .txt img.em{width:22px;height:22px;vertical-align:-4px;margin:0 1px}
+  .imgs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .imgs a{display:block;line-height:0}
+  .imgs img{width:118px;height:118px;object-fit:cover;border-radius:8px;
+    border:1px solid var(--line);background:#0b0d11;transition:transform .12s}
+  .imgs img:hover{transform:scale(1.04)}
+  .imgnote{font-size:12px;color:#8b94a3;margin-top:6px}
+  .cmts{margin-top:10px;padding:10px 12px;background:var(--panel2);border-radius:9px;font-size:13px}
+  .cmts .c{margin:0 0 6px}
+  .cmts .c:last-child{margin:0}
+  .cmts .n{color:#9fb3c8}
+  .cmts .sub{margin:5px 0 0 18px;color:#b9c2ce;font-size:12.5px}
+  .cmts .sub .n{color:#8fa0b3}
+  .acts{display:flex;gap:6px;margin-top:10px}
+  .acts button{font-size:12px;padding:3px 10px;opacity:.72}
+  .acts button:hover{opacity:1}
+  .acts button[data-arm]{color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,.12)}
+  .acts .why{font-size:12px;color:#8b94a3;align-self:center}
+  .empty{color:var(--dim);text-align:center;padding:60px 0}
+  .more{display:block;width:100%;padding:11px;margin-top:6px}
+  .share{margin-top:9px;padding:8px 11px;background:var(--panel2);border-radius:8px;
+    font-size:13px;border-left:2px solid var(--acc)}
+  .fwd{margin-top:9px;padding:8px 11px;background:var(--panel2);border-radius:8px;
+    font-size:13px;color:#b9c2ce}
+  .fwd b{color:#9fb3c8;font-weight:500}
+  mark{background:rgba(245,158,11,.3);color:inherit;border-radius:2px;padding:0 1px}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    background:#1e4b73;border:1px solid #2b6da3;color:#dbeafe;padding:9px 18px;border-radius:9px;
+    opacity:0;pointer-events:none;transition:opacity .2s;font-size:13px;z-index:20}
+  .toast.on{opacity:1}
+  a{color:var(--acc);text-decoration:none}
+  /* 登录遮罩：没口令进不来 */
+  #gate{position:fixed;inset:0;background:var(--bg);z-index:50;display:none;
+    align-items:center;justify-content:center;padding:20px}
+  #gate.on{display:flex}
+  .gatebox{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:26px 24px;text-align:center}
+  .gatebox h2{margin:0 0 6px;font-size:16px;font-weight:650}
+  .gatebox p{margin:0 0 18px;color:var(--dim);font-size:12.5px}
+  .gatebox input{width:100%;text-align:center;font-size:16px;letter-spacing:2px;padding:10px}
+  .gatebox button{width:100%;margin-top:12px;padding:10px;background:#1e4b73;border-color:#2b6da3}
+  .gatebox .err{color:#f87171;font-size:12.5px;min-height:18px;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="gatebox">
+    <h2>QQ说说收集</h2>
+    <p>这里存的是私人的东西，先对口令</p>
+    <input id="pwd" type="password" placeholder="口令" autocomplete="current-password">
+    <button id="btnLogin">进去</button>
+    <div class="err" id="gateErr"></div>
+  </div>
+</div>
+<header>
+  <div class="row">
+    <h1>QQ说说收集</h1>
+    <input id="q" placeholder="搜索正文 / 评论 / 转发…（空格分隔多个词）">
+    <select id="year"><option value="">全部年份</option></select>
+    <select id="month" aria-label="按月份筛选"><option value="">全部月份</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4">4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select>
+    <button id="btnSearch" class="pri">搜索</button>
+    <button id="btnExport">导出 Markdown</button>
+    <button id="btnCompletePictures" title="一键启动，后台缓慢补齐已有缺图记录">一键补齐全部</button><button id="btnPausePictures" style="display:none">暂停补图</button>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</header>
+<main>
+  <section class="writing" aria-label="字数统计"><div class="row"><h2>已收集正文 · 字数统计</h2><label><input type="checkbox" id="punctuation">计入标点</label><button id="refreshWriting">刷新统计</button></div><div id="writingSummary" aria-live="polite">正在统计…</div><p class="note">汉字、字母和数字各计 1 字；不计空白、表情、链接、评论和引用原帖。年度/月度按北京时间，点击可筛选说说。</p></section>
+  <div class="meta" id="meta">加载中…</div>
+  <div class="meta" id="pictureRepairStatus" role="status"></div>
+  <div id="list"></div>
+  <button class="more" id="more" style="display:none">加载更多</button>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+  var API = '/api/qzone-echo';
+  var SCOPES = [
+    {k:'all',      n:'全部'},
+    {k:'thoughts', n:'思考 / 感想'},
+    {k:'dreams',   n:'梦记'},
+    {k:'reviews',  n:'介绍 / 推荐'},
+    {k:'deleted',  n:'已删除'}
+  ];
+  var state = { scope:'all', q:'', year:'', month:'', punctuation:false, writing:null, offset:0, limit:30, total:0, items:[] };
+  var $  = function(s){ return document.querySelector(s) };
+  var list = $('#list'), meta = $('#meta'), more = $('#more');
+
+  function toast(msg){
+    var el = $('#toast'); el.textContent = msg; el.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ el.classList.remove('on') }, 1800);
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  // QQ 表情码 -> 真表情图
+  function emoji(s){
+    return esc(s).replace(/\[em\]e(\d+)\[\/em\]/gi, function(_, c){
+      return '<img class="em" src="https://qzonestyle.gtimg.cn/qzone/em/e' + c +
+             '.gif" alt="表情" loading="lazy">';
+    });
+  }
+  function hl(html, terms){
+    if(!terms.length) return html;
+    // 只在标签外的文本里高亮
+    return html.replace(/>([^<]+)</g, function(_, txt){
+      var out = txt;
+      terms.forEach(function(t){
+        if(!t) return;
+        var re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+        out = out.replace(re, '<mark>$1</mark>');
+      });
+      return '>' + out + '<';
+    });
+  }
+  function imgSrc(m, i){
+    var local = (m.localImages || [])[i];
+    if(local) return API + '/img?p=' + encodeURIComponent(local);
+    var remote = (m.imageUrls || [])[i];
+    return remote || '';
+  }
+  // 时间显示成本地时间（YYYY-MM-DD HH:mm）。库里存的是 UTC ISO，
+  // 以前直接贴上去，卡片上就挂着 `2026-10-20T15:21:10.000Z` 这种（老大截图报的）。
+  function fmtTime(t){
+    if(!t) return '';
+    var d = new Date(t);
+    if(isNaN(d.getTime())) return String(t);
+    var p = function(n){ return n < 10 ? '0' + n : '' + n };
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) +
+      ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function card(m, terms){
+    var h = [];
+    h.push('<div class="card" data-tid="' + esc(m.tid) + '">');
+    h.push('<div class="head">');
+    h.push('<span class="time">' + esc(fmtTime(m.time)) + '</span>');
+    h.push('<span class="tag words" data-plain="' + (m.wordCount || 0) + '" data-punct="' + (m.wordCountWithPunctuation || 0) + '">' + (state.punctuation ? m.wordCountWithPunctuation || 0 : m.wordCount || 0) + ' 字' + (m.contentIncomplete || m.truncated ? '（已收集）' : '') + '</span>');
+    if(m.thought) h.push('<span class="tag t">思考</span>');
+    if(m.dream)   h.push('<span class="tag d">梦记</span>');
+    if(m.kind === 'review') h.push('<span class="tag r">介绍/推荐</span>');
+    if(m.gone)     h.push('<span class="tag del" title="逐条验活时腾讯明确回了「该条内容已被删除」">已删除</span>');
+    else if(m.recovered) h.push('<span class="tag del" title="已经从空间删掉了，正文只有历史消息里的摘要">已删除</span>');
+    if((m.comments||0) > 0) h.push('<span class="tag">评 ' + m.comments +
+      (m.replies ? ' · 回 ' + m.replies : '') + '</span>');
+    // 正文不全：腾讯对超长说说只给前 500 字。如实标出来，别让人以为原文就这么短。
+    if(m.contentIncomplete) h.push('<span class="tag" title="腾讯接口对超长说说只返回前 500 字左右，插件还没补到全文" style="color:#d08a2e;border-color:#5c4423">正文可能不全</span>');
+    h.push('<span class="score">' + (m.score != null ? m.score + ' 分' : '') + '</span>');
+    h.push('</div>');
+
+    var body = hl(emoji(m.content || ''), terms);
+    h.push('<div class="txt">' + (body || '<span style="color:#8b94a3">（无正文）</span>') + '</div>');
+
+    if(m.share && (m.share.name || m.share.url)){
+      h.push('<div class="share">' + (m.share.music ? '🎵 ' : '🔗 ') +
+        (m.share.url ? '<a href="' + esc(m.share.url) + '" target="_blank" rel="noreferrer">' +
+          esc(m.share.name || m.share.url) + '</a>' : esc(m.share.name)) + '</div>');
+    }
+    // 转发块：作者名单独一行，原文单独一段。
+    // ⚠️ 2026-10-22 老大报「转发的没有名字」——原来只在有 content 时才渲染，
+    //    而且名字为空就空着；现在只要摸到名字或原文就显示。
+    if(m.forwardedFrom && (m.forwardedFrom.name || m.forwardedFrom.content)){
+      h.push('<div class="fwd"><b>转发自 ' + esc(m.forwardedFrom.name || '（原帖已不可见）') + '</b>' +
+        (m.forwardedFrom.content ? '<br>' + emoji(m.forwardedFrom.content) : '') + '</div>');
+    }
+    var n = Math.max((m.imageUrls||[]).length, (m.localImages||[]).length);
+    if(n > 0){
+      h.push('<div class="imgs">');
+      for(var i = 0; i < n; i++){
+        var src = imgSrc(m, i);
+        if(src) h.push('<a href="' + esc(src) + '" target="_blank" rel="noreferrer">' +
+          '<img src="' + esc(src) + '" loading="lazy" alt="图' + (i+1) + '"></a>');
+      }
+      h.push('</div>');
+      // 原帖照片总数比拿到的多 → 老实说明（腾讯接口的 pic 数组最多只给 9 张）
+      if(m.picTotal && m.picTotal > n){
+        h.push('<div class="imgnote">原帖共 ' + m.picTotal + ' 张，已收集 ' + n + ' 张。<button data-act="complete-pictures">补齐剩余 ' + (m.picTotal - n) + ' 张</button></div>');
+      }
+    }
+    if((m.commentList||[]).length){
+      h.push('<div class="cmts">');
+      m.commentList.forEach(function(c){
+        h.push('<div class="c"><span class="n">' + emoji(c.name || c.uin) + '</span>：' +
+          hl(emoji(c.content || ''), terms) + '</div>');
+        (c.replies || []).forEach(function(r){
+          h.push('<div class="sub"><span class="n">↳ ' + emoji(r.name || r.uin) + '</span>：' +
+            hl(emoji(r.content || ''), terms) + '</div>');
+        });
+      });
+      h.push('</div>');
+    }
+    h.push('<div class="acts">');
+    if(m.recovered || m.gone){
+      // 「已删除」栏的两种来源：①历史消息补回来的摘要 ②验活查出真没了的本地全文。
+      // 两者都可能是误判（本地没同步过那个年份、删了重发、正文改过），所以都给一个手动出口。
+      if(m.gone) h.push('<span class="why">验活查出已删</span>');
+      else h.push('<span class="why">历史消息里翻到的摘要</span>');
+      h.push('<button data-act="dismiss">这条其实没删 / 是重复的</button>');
+    } else {
+      h.push(m.thought
+        ? '<button data-act="unthink">不算思考</button>'
+        : '<button data-act="think">算思考</button>');
+    }
+    h.push('</div></div>');
+    return h.join('');
+  }
+  var pictureRepairBusy = false;
+  function completePictures(tid, button){
+    if(pictureRepairBusy){ toast('正在补图，请稍等'); return }
+    pictureRepairBusy = true;
+    var oldText = button.textContent; button.disabled = true; button.textContent = '正在补图…';
+    $('#pictureRepairStatus').textContent = '正在读取完整图片列表，遇限流会暂停…';
+    fetch(API+'/pictures/complete', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({tid:tid || '',max:5}) })
+      .then(function(r){return r.json()}).then(function(d){
+        var terms = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        (d.items || []).forEach(function(m){
+          list.querySelectorAll('.card').forEach(function(el){ if(el.dataset.tid === String(m.tid)) el.outerHTML = card(m, terms) });
+          state.items = state.items.map(function(old){ return String(old.tid) === String(m.tid) ? m : old });
+        });
+        if(!d.ok){
+          $('#pictureRepairStatus').textContent = (d.repaired ? '已补齐 '+d.repaired+' 条。' : '') + (d.error || '本次未完成，稍后重试');
+          return;
+        }
+        $('#pictureRepairStatus').textContent='已补齐 '+d.repaired+' 条，新增 '+d.addedImages+' 张图片地址；还有 '+d.posts+' 条缺图。'+(d.posts?'可稍后再补下一批。':'');
+      }).catch(function(e){$('#pictureRepairStatus').textContent='补图失败：'+e.message})
+      .finally(function(){ pictureRepairBusy=false; button.disabled=false; button.textContent=oldText });
+  }
+  var imageJobPoll = null, imageJobRequest = 0;
+  function showImageJob(d){
+    if(!d || !d.ok) throw new Error(d && d.error || '补图进度暂不可用');
+    var active=!!d.enabled, label={idle:'尚未启动',running:'后台补图中',paused:'已暂停',cooldown:'接口繁忙，正在冷却',completed:'本批全部补齐',completed_with_gaps:'本批已处理完，仍有缺图需复核',needs_login:'需要更新QQ登录信息',needs_attention:'连续请求失败，已暂停'};
+    $('#btnCompletePictures').textContent=active?'后台补图中…':d.status==='paused' || d.status==='needs_attention'?'继续补图':'一键补齐全部';
+    $('#btnCompletePictures').disabled=active;
+    $('#btnPausePictures').style.display=active?'inline-block':'none';
+    if(d.status !== 'idle'){
+      $('#pictureRepairStatus').textContent=(label[d.status] || d.status)+'：已处理 '+d.processed+'/'+d.total+' 条，补齐 '+d.repaired+' 条，新增 '+d.addedImages+' 张图片地址。'+(d.skipped?'待复核 '+d.skipped+' 条。':'')+(d.remainingMissing?'当前仍有 '+d.remainingMissing+' 条缺图。':'')+(d.nextRetryAt?'下次尝试 '+new Date(d.nextRetryAt).toLocaleTimeString('zh-CN')+'。':'')+(d.lastError?' '+d.lastError:'')+' 补齐后刷新页面查看图片。';
+    }
+    clearTimeout(imageJobPoll);
+    if(active) imageJobPoll=setTimeout(pollImageJob,15000);
+  }
+  function pollImageJob(){
+    var n=++imageJobRequest;
+    fetch(API+'/pictures/job').then(function(r){return r.json()}).then(function(d){if(n===imageJobRequest)showImageJob(d)}).catch(function(){clearTimeout(imageJobPoll);imageJobPoll=setTimeout(pollImageJob,30000)});
+  }
+  function controlImageJob(action,button){
+    clearTimeout(imageJobPoll); var n=++imageJobRequest; button.disabled=true;
+    fetch(API+'/pictures/job',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:action})})
+      .then(function(r){return r.json()}).then(function(d){if(n===imageJobRequest)showImageJob(d)})
+      .catch(function(e){$('#pictureRepairStatus').textContent='后台补图：'+e.message;button.disabled=false})
+      .finally(function(){if(action==='pause')button.disabled=false});
+  }
+  $('#btnCompletePictures').addEventListener('click',function(){controlImageJob('start',this)});
+  $('#btnPausePictures').addEventListener('click',function(){controlImageJob('pause',this)});
+  function shownCount(){ return list.querySelectorAll('.card').length }
+  function emptyHint(){
+    list.innerHTML = '<div class="empty">' +
+      (state.q ? '没搜到「' + esc(state.q) + '」' : '这一栏还没有内容') + '</div>';
+  }
+  function syncMeta(){
+    var shown = shownCount();
+    meta.textContent = '共 ' + state.total + ' 条' + (state.q ? '（全库搜「' + state.q + '」）' : '') +
+      '　已显示 ' + shown;
+    more.style.display = shown > 0 && shown < state.total ? 'block' : 'none';
+  }
+  function render(reset){
+    if(reset){ list.innerHTML = '' }
+    more.style.display = 'none';
+    var terms = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    list.insertAdjacentHTML('beforeend', state.items.map(function(m){ return card(m, terms) }).join(''));
+    if(!list.querySelector('.card')) emptyHint();
+    syncMeta();
+  }
+  function load(reset){
+    // offset 一律由「已经翻到第几条」推进，不再拿 items.length 回算 ——
+    // 中途在本地摘掉几张卡也不会错位或重复。
+    if(reset){ state.offset = 0 }
+    // 有搜索词时**跨全库搜**：老大 2026-10-22 报「我搜转发也搜不到」——
+    // 那条转发只有 14 分、不在「思考」栏里，按当前栏搜当然搜不到。
+    // 搜索本来就该是「找东西」，不该被当前标签页挡住。
+    var searchScope = state.q ? 'all' : state.scope;
+    var u = API + '/items?scope=' + searchScope + '&limit=' + state.limit +
+            '&offset=' + state.offset + (state.q ? '&q=' + encodeURIComponent(state.q) : '') +
+            (state.year ? '&year=' + state.year : '') + (state.month ? '&month=' + state.month : '');
+    meta.textContent = '加载中…';
+    fetch(u).then(function(r){ return r.json() }).then(function(d){
+      if(!d || !d.ok) throw new Error((d && d.error) || '接口没回 ok');
+      state.total = d.total; state.items = d.items || [];
+      state.offset += state.items.length;
+      render(reset);
+    }).catch(function(e){
+      meta.textContent = '读不到数据：' + e.message;
+    });
+  }
+  /* 改完分类**就地只动这一张卡**，不重新拉、不重画整个列表 ——
+   * 老大 2026-10-23 报「在思考里点了几次加载更多，把一条改成「不算思考」就跳回最上面，
+   * 没法接着往下看」。老代码成功后是 load(true)：offset 归零、列表重画，翻过的几十条全丢。
+   * 现在：该走的从列表里摘掉，该留的只换按钮和标签，滚动位置一动不动。 */
+  function dropCard(cardEl){
+    cardEl.remove();
+    state.total = Math.max(0, state.total - 1);
+    // 服务端那条也跟着没了、后面的整体前移一格 → 游标也要退一格，否则下次「加载更多」会漏掉一条
+    state.offset = Math.max(0, state.offset - 1);
+    // 正好把当前这一屏摘空了：库里有货就重头拉一屏补上，不然只剩一句「还没有内容」
+    if(!list.querySelector('.card')){
+      if(state.total > 0){ load(true); return }
+      emptyHint();
+    }
+    syncMeta();
+  }
+  function applyFixLocal(cardEl, want){
+    if(!cardEl) return;
+    // 只有「在思考栏里把这条踢出思考」会让它离开当前列表；搜索态是全库搜，不离开
+    var leaves = !state.q && state.scope === 'thoughts' && !want;
+    if(leaves){
+      dropCard(cardEl);
+      return;
+    }
+    var acts = cardEl.querySelector('.acts');
+    if(acts) acts.innerHTML = want
+      ? '<button data-act="unthink">不算思考</button>'
+      : '<button data-act="think">算思考</button>';
+    var head = cardEl.querySelector('.head');
+    var tag = head ? head.querySelector('.tag.t') : null;
+    var tm = head ? head.querySelector('.time') : null;
+    if(want && head && !tag && tm){
+      tag = document.createElement('span'); tag.className = 'tag t'; tag.textContent = '思考';
+      head.insertBefore(tag, tm.nextSibling);
+    } else if(!want && tag){ tag.remove() }
+    syncMeta();
+  }
+  function applyDismissLocal(cardEl){
+    if(cardEl) dropCard(cardEl);
+  }
+  var writingRequest = 0;
+  function renderWriting(){
+    var d = state.writing; if(!d) return;
+    var years = Object.keys(d.years).sort().reverse();
+    var y = state.year || years[0] || '';
+    var h = '<div>累计 <strong>' + d.total.characters.toLocaleString() + '</strong> 字 · ' + d.total.posts + ' 篇</div>';
+    h += '<p class="note">统计全部已收集的本人正文，不随分类或关键词变化，不含历史摘要；长文尚未全部核对，字数会随补全更新。待核对 ' + d.total.unverified + ' 篇，已标记不全 ' + d.total.incomplete + ' 篇。' + (d.total.undated ? '另有 ' + d.total.undated + ' 篇日期不明，仅计入累计。' : '') + '</p>';
+    h += '<div>年度汇总</div><div class="periods">' + years.map(function(k){ return '<button data-writing-year="' + k + '">' + k + '年 · <strong>' + d.years[k].characters.toLocaleString() + '</strong> 字 · ' + d.years[k].posts + ' 篇</button>' }).join('') + '</div>';
+    if(y){
+      h += '<div>' + y + '年月度汇总</div><div class="periods">';
+      for(var i=1;i<=12;i++){
+        var k=y+'-'+String(i).padStart(2,'0'), row=d.months[k] || {characters:0,posts:0};
+        h += '<button data-writing-year="' + y + '" data-writing-month="' + i + '">' + i + '月 · <strong>' + row.characters.toLocaleString() + '</strong> 字 · ' + row.posts + ' 篇</button>';
+      }
+      h += '</div>';
+    }
+    $('#writingSummary').innerHTML=h;
+  }
+  function loadWriting(){
+    var request = ++writingRequest;
+    fetch(API+'/writing-stats?punctuation='+(state.punctuation?'1':'0')).then(function(r){return r.json()}).then(function(d){
+      if(request !== writingRequest) return;
+      if(!d || !d.ok) throw new Error('统计暂不可用');
+      state.writing=d; renderWriting();
+    }).catch(function(e){ if(request === writingRequest) $('#writingSummary').textContent='统计读取失败：'+e.message });
+  }
+  $('#writingSummary').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-writing-year]'); if(!b)return;
+    state.year=b.dataset.writingYear; state.month=b.dataset.writingMonth || '';
+    $('#year').value=state.year; $('#month').value=state.month;
+    renderWriting(); load(true);
+  });
+  $('#punctuation').addEventListener('change',function(){
+    state.punctuation=this.checked;
+    document.querySelectorAll('.words').forEach(function(el){
+      var suffix=el.textContent.indexOf('（已收集）')>=0?'（已收集）':'';
+      el.textContent=(state.punctuation?el.dataset.punct:el.dataset.plain)+' 字'+suffix;
+    });
+    loadWriting();
+  });
+  $('#refreshWriting').addEventListener('click',loadWriting);
+  function buildTabs(counts){
+    $('#tabs').innerHTML = SCOPES.map(function(s){
+      var c = counts && counts[s.k] != null ? '<b>' + counts[s.k] + '</b>' : '';
+      return '<div class="tab' + (state.scope === s.k ? ' on' : '') + '" data-scope="' + s.k + '">' +
+        s.n + c + '</div>';
+    }).join('');
+  }
+  function counts(){
+    fetch(API + '/status').then(function(r){ return r.json() }).then(function(d){
+      var c = d && d.library ? {thoughts:d.library.thoughts, dreams:d.library.dreams,
+        reviews:d.library.reviews, deleted:d.library.deleted, all:d.library.total} : null;
+      buildTabs(c);
+      if(d && d.library){
+        // 年份用顶层 years（数组、已倒序）；library.years 是「按年条数」的对象，不能直接 map
+        var y = Array.isArray(d.years) ? d.years : [];
+        $('#year').innerHTML = '<option value="">全部年份</option>' + y.map(function(v){
+          return '<option value="' + v + '">' + v + '</option>';
+        }).join('');
+        $('#year').value = state.year;
+      }
+    }).catch(function(){ buildTabs(null) });
+  }
+
+  $('#tabs').addEventListener('click', function(e){
+    var t = e.target.closest('.tab'); if(!t) return;
+    state.scope = t.dataset.scope; buildTabs(null); load(true);
+  });
+  list.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-act]'); if(!b) return;
+    var cardEl = b.closest('.card'), tid = cardEl.dataset.tid;
+    var act = b.dataset.act;
+    if(act === 'complete-pictures'){ completePictures(tid, b); return }
+
+    // 「已删除」栏的出口：这条其实没删／是重复的 → 移出去（不再算已删除）
+    if(act === 'dismiss'){
+      if(b.dataset.arm !== '1'){
+        b.dataset.arm = '1'; b.textContent = '再点一下，移到外面去';
+        setTimeout(function(){ if(b.dataset.arm === '1'){ b.dataset.arm = ''; b.textContent = '这条其实没删 / 是重复的' } }, 5000);
+        return;
+      }
+      b.dataset.arm = ''; b.textContent = '提交中…';
+      fetch(API + '/dismiss', {
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ tid: tid }),
+      }).then(function(r){ return r.json() }).then(function(d){
+        if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
+        toast('移出去了，这条不再算「已删除」');
+        applyDismissLocal(cardEl); counts();
+      }).catch(function(err){
+        toast('失败：' + err.message);
+        b.textContent = '这条其实没删 / 是重复的';
+      });
+      return;
+    }
+
+    var want = act === 'think';
+    // 两下确认：第一下只上膛，5 秒内第二下才真发
+    if(b.dataset.arm !== '1'){
+      b.dataset.arm = '1';
+      b.textContent = '再点一下确认';
+      setTimeout(function(){ if(b.dataset.arm === '1'){ b.dataset.arm = ''; b.textContent = want ? '算思考' : '不算思考' } }, 5000);
+      return;
+    }
+    b.dataset.arm = '';
+    b.textContent = '提交中…';
+    fetch(API + '/fix', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ tid: tid, thought: want }),
+    }).then(function(r){ return r.json() }).then(function(d){
+      if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
+      toast('已改成「' + (want ? '算思考' : '不算思考') + '」');
+      applyFixLocal(cardEl, want); counts();
+    }).catch(function(err){
+      toast('失败：' + err.message);
+      b.textContent = want ? '算思考' : '不算思考';
+    });
+  });
+  $('#btnSearch').addEventListener('click', function(){ state.q = $('#q').value; load(true) });
+  $('#q').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ state.q = this.value; load(true) } });
+  $('#year').addEventListener('change', function(){ state.year = this.value; renderWriting(); load(true) });
+  $('#month').addEventListener('change', function(){ state.month = this.value; load(true) });
+  // offset 由 load() 自己推进（按服务端实际给了几条），这里别再手动加一遍，否则会跳页
+  more.addEventListener('click', function(){ load(false) });
+  $('#btnExport').addEventListener('click', function(){
+    fetch(API + '/export', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ format:'md', scope: state.scope }),
+    }).then(function(r){ return r.json() }).then(function(d){
+      if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
+      toast('已导出：' + (d.file || d.name || '好了'));
+    }).catch(function(e){ toast('导出失败：' + e.message) });
+  });
+
+  // ---- 口令：任何接口回 401 就把遮罩拉起来，登录成功后重新开跑 ----
+  var gate = $('#gate');
+  function needLogin(){ gate.classList.add('on'); setTimeout(function(){ $('#pwd').focus() }, 60) }
+  function relogin(){
+    gate.classList.remove('on');
+    state.q = ''; state.year = ''; state.month = ''; $('#month').value = ''; $('#q').value = ''; $('#year').value = '';
+    counts(); loadWriting(); load(true); pollImageJob();
+  }
+  $('#btnLogin').addEventListener('click', doLogin);
+  $('#pwd').addEventListener('keydown', function(e){ if(e.key === 'Enter') doLogin() });
+  function doLogin(){
+    var pwd = $('#pwd').value;
+    if(!pwd){ $('#gateErr').textContent = '先输口令'; return }
+    $('#btnLogin').textContent = '验证中…';
+    fetch(API + '/login', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ password: pwd }),
+    }).then(function(r){ return r.json() }).then(function(d){
+      $('#btnLogin').textContent = '进去';
+      if(!d || !d.ok) throw new Error((d && d.error) || '口令不对');
+      $('#pwd').value = ''; $('#gateErr').textContent = '';
+      relogin();
+    }).catch(function(e){
+      $('#btnLogin').textContent = '进去';
+      $('#gateErr').textContent = e.message;
+      $('#pwd').select();
+    });
+  }
+  // 统一包一层：401 直接弹登录
+  var rawFetch = window.fetch;
+  window.fetch = function(u, o){
+    return rawFetch(u, o).then(function(r){
+      if(r.status === 401) needLogin();
+      return r;
+    });
+  };
+
+  buildTabs(null); counts(); loadWriting(); load(true); pollImageJob();
+})();
+</script>
+</body>
+</html>

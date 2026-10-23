@@ -1,0 +1,16 @@
+# ============================================================================
+# dsh-qzone-echo —— DSH bundle patch（插件**自带**的挂载声明）
+# ============================================================================
+# 装上之后，profile 只要在 `dsh.profile.bundles` 里列出本包名即生效。
+# 组成顺序：每个 bundle 的 patch 按 `dsh.profile.bundles` 顺序叠
+#          → 再叠 profile 自己那一层的 cordis.patch.yml（只有那层是热重载）
+# ============================================================================
+
+- insert:
+    - id: qzone-echo
+      name: dsh-qzone-echo
+      config:
+        # 真正的用户配置在插件自己的家目录 config.json 里（设置页可改）
+        # ⚠️ 这里别放值：schemastery 的字段不在宿主设置页显式设过时，宿主会把 schema 那坨
+        #    原样透传进来，值的类型可能不是标量（2026-10-22 踩过，见 index.js 的 normalizeCfg）
+        enabled: true
