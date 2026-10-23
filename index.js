@@ -31,10 +31,9 @@ import { join } from 'node:path'
 import {
   ensureHome, paths, getConfig, saveConfig, getCredential, clearCredential, maskCookie, DEFAULT_CONFIG,
   loadAll, loadThoughts, loadDreams, exportMarkdown, exportJson, statOf, homeDir, recomputeThoughts,
-  purgeOwner, owners, setOverride, clearOverrides, loadOverrides, loadReviews, loadDeleted, logLine,
-  isDeletedRow, setDismissed, clearDismissed, loadDismissed,
+  purgeOwner, owners, setOverride, clearOverrides, loadOverrides, loadReviews, logLine,
 } from './lib/store.mjs'
-import { syncOnce, saveCookie, stats, openSession, applyThreshold, autoSyncOnce, shouldAutoRun, autoState, syncHistory, historyState, syncVerify } from './lib/sync.mjs'
+import { syncOnce, saveCookie, stats, openSession, applyThreshold, autoSyncOnce, shouldAutoRun, autoState } from './lib/sync.mjs'
 import { classify, isThought, isDream, isReview } from './lib/classify.mjs'
 import { downloadImages, imageStats } from './lib/images.mjs'
 import { page } from './lib/web.mjs'
@@ -161,6 +160,7 @@ export function apply(ctx, config, cfgIn) {
         uin: cred?.uin || null,
         cookieSavedAt: cred?.savedAt || null,
         library: s,
+        longtext: repairStatus(),
         config: cfg,
         auto: { ...autoState(), nextRun: gate.run ? null : gate.nextAt || null, why: gate.why },
         home: p.home,
@@ -170,7 +170,6 @@ export function apply(ctx, config, cfgIn) {
           thoughts: statOf(p.thoughts),
           dreams: statOf(p.dreams),
           reviews: statOf(p.reviews),
-          deleted: statOf(p.deleted),
           credential: statOf(p.credential) ? '已存在' : '无',
         },
       }
@@ -206,28 +205,6 @@ export function apply(ctx, config, cfgIn) {
     },
   })
 
-  tool({
-    name: 'qzone_echo_history',
-    description: '从「历史消息列表」补回**已经删掉的**说说（只有摘要，没有全文）。\n'
-      + '原理：QQ 空间另有一份「谁在我某条说说下面评论/点赞过」的记录，说说删了它还在 —— '
-      + '所以只要有互动过，就能捞回一条带时间和摘要的残影。\n'
-      + '⚠️ 这条通道重：顺序翻页、每页隔 900ms，翻几十页可能要好几分钟，默认不该乱跑；'
-      + '翻完会把「时间相近 + 摘要一致」的当成还活着剔掉，剩下的标 recovered + possiblyDeleted 入库。\n'
-      + '⚠️ 正文是 ellipsis-one 截断过的摘要，不是原文 —— 别拿它当原话引用。',
-    parameters: {
-      maxPages: { type: 'number', description: '最多翻多少页（默认 50，一页 20 条；数字越大越慢也越容易被拦）' },
-      intervalMs: { type: 'number', description: '页间隔毫秒（默认 900，别低于 500）' },
-      resume: { type: 'boolean', description: '从上次断点继续（默认 true）' },
-    },
-    async execute(args) {
-      const r = await syncHistory({
-        maxPages: args.maxPages ? Number(args.maxPages) : undefined,
-        intervalMs: args.intervalMs != null ? Number(args.intervalMs) : undefined,
-        resume: args.resume !== false,
-      })
-      return r
-    },
-  })
 
   tool({
     name: 'qzone_echo_repair_longtext',
@@ -238,75 +215,6 @@ export function apply(ctx, config, cfgIn) {
     },
   })
 
-  tool({
-    name: 'qzone_echo_verify',
-    description: '⭐ 逐条验活：拿库里每条的 tid 直接问腾讯「这条还在不在」。**这才是判「删没删」的硬办法**。\n'
-      + '活着的返回全文（还能顺便把本地缺的正文补上），删了的返回「该条内容已被删除」。\n'
-      + '优点：跟有没有人评论过无关（没互动的说说删了也查得出）、跟正文改没改过无关（tid 不变就不影响）。\n'
-      + '⚠️ 慢：平均约 1.2 秒/条，一轮只查一段（默认 300 条 ≈ 6 分钟），查过的打上时间戳、下次自动接着来，'
-      + '所以可以反复调用直到 remaining=0。中途断了也不会重复查。\n'
-      + '查出来已删的，正文用**本地全文**（比历史消息的摘要强），进「已删除」那一栏。',
-    parameters: {
-      max: { type: 'number', description: '这一轮最多查多少条（默认 300，别一次太大）' },
-      intervalMs: { type: 'number', description: '每条间隔毫秒（默认 400，别低于 300）' },
-      redo: { type: 'boolean', description: 'true=连查过的也重查一遍（默认 false，跳过查过的）' },
-      since: { type: 'string', description: '只查这个日期之后发布的，如 2020-01-01（可省）' },
-    },
-    async execute(args) {
-      const r = await syncVerify({
-        max: args.max ? Number(args.max) : undefined,
-        intervalMs: args.intervalMs != null ? Number(args.intervalMs) : undefined,
-        redo: args.redo === true,
-        since: args.since ? String(args.since) : '',
-      })
-      return r
-    },
-  })
-
-  tool({
-    name: 'qzone_echo_dismiss',
-    description: '把「已删除」栏里某一条**移出去** —— 用于「它其实没删」或「这条是重复的」这种误判。\n'
-      + '判定删没删永远会有假阳性（本地没同步过那个年份、正文被编辑过、删了重发），所以留这个手动出口。\n'
-      + '移出去之后这条就不再出现在「已删除」栏，也**不会**混进思考/梦记；记录写进 dismissed.jsonl，'
-      + '重算、重同步都不会被翻回来。给 undo=true 可以撤销（回到自动判）。\n'
-      + 'tid 就是 qzone_echo_list 传 deletedOnly=true 之后返回的 tid（也可以用 id）。',
-    parameters: {
-      tid: { type: 'string', description: '要移出哪一条（tid 或 id）' },
-      note: { type: 'string', description: '为什么移出（可省，给自己留个记录）' },
-      undo: { type: 'boolean', description: 'true=撤销，让这条回到「已删除」栏（按自动判）' },
-      undoAll: { type: 'boolean', description: 'true=清空全部移出记录（误点一堆时用）' },
-    },
-    async execute(args) {
-      if (args.undoAll === true) {
-        const r = clearDismissed()
-        return r.ok === false ? r : { ...r, message: `清空了 ${r.cleared} 条移出记录，那些条目回到自动判。` }
-      }
-      const tid = String(args.tid || '').trim()
-      if (!tid) return { ok: false, error: '要给 tid（清空全部则给 undoAll=true）' }
-      const all = loadAll()
-      let hit = all.find((m) => m.id === tid)
-      if (!hit) hit = all.find((m) => String(m.tid) === tid)
-      if (!hit) return { ok: false, error: `库里没有这条：${tid}` }
-      if (!isDeletedRow(hit) && args.undo !== true) {
-        return {
-          ok: false, tid: hit.tid,
-          error: '这条现在不在「已删除」栏里，没什么可移出的。',
-          hint: '先用 qzone_echo_list 传 deletedOnly=true 看一眼要处理哪条。',
-        }
-      }
-      if (args.undo === true) {
-        const r = setDismissed(hit.id || tid, null)
-        return { ...r, tid: hit.tid, message: '撤销了，这条回到按自动判（如果它被判定为已删，会重新出现在那一栏）。' }
-      }
-      const r = setDismissed(hit.id || tid, true, args.note)
-      return {
-        ...r,
-        tid: hit.tid,
-        content: String(hit.content || '').slice(0, 80),
-        message: '移出去了，这条不再算「已删除」。',
-      }
-    },
-  })
 
   tool({
     name: 'qzone_echo_list',
@@ -318,12 +226,10 @@ export function apply(ctx, config, cfgIn) {
       kind: { type: 'string', description: 'thought / dream / review / forward / media / share / short / misc / all（默认 all）' },
       thoughtOnly: { type: 'boolean', description: '只要「思考/感想」那一类' },
       dreamOnly: { type: 'boolean', description: '只要「梦记」那一类' },
-      deletedOnly: { type: 'boolean', description: '只要「已经删掉的」那一栏（历史消息补回的摘要 + 验活查出真没了的全文）' },
       minScore: { type: 'number', description: '最低分数（0~100）' },
       limit: { type: 'number', description: '返回几条（默认 20，最多 100）' },
       offset: { type: 'number', description: '从第几条开始（默认 0）' },
       full: { type: 'boolean', description: '是否带完整正文与评论（默认 true）' },
-      recoveredOnly: { type: 'boolean', description: '只看「从历史消息补回来的、疑似已删除」的说说（可省）' },
     },
     async execute(args) {
       const cfg = cfgOf()
@@ -335,9 +241,6 @@ export function apply(ctx, config, cfgIn) {
       const minScore = Number(args.minScore) || 0
       let list = all
       if (year) list = list.filter((m) => m.ts && new Date(m.ts * 1000).getFullYear() === year)
-      if (kwargsTrue(args.recoveredOnly)) list = list.filter((m) => m.recovered)
-      // 「已经删掉的」这一栏：历史消息补回来的摘要 + 验活查出真没了的；被老大手动移出去的不算
-      if (kwargsTrue(args.deletedOnly)) list = list.filter(isDeletedRow)
       if (kwargsTrue(args.thoughtOnly)) list = list.filter((m) => isThought(m, th))
       if (kwargsTrue(args.dreamOnly)) list = list.filter((m) => isDream(m))
       if (kind === 'dream') list = list.filter((m) => isDream(m))
@@ -443,16 +346,6 @@ export function apply(ctx, config, cfgIn) {
       let hit = all.find((m) => m.id === tid)
       if (!hit) hit = all.find((m) => String(m.tid) === tid)
       if (!hit) return { ok: false, error: `库里没有这条：${tid}` }
-      // 补回来的「已删除」只有截断摘要，按设计不进思考/梦记（lib/classify.mjs 里对 recovered 一律 false），
-      // 手改按钮会变成一个「点了没反应」的死按钮 —— 直接说清楚，别让老大白点。
-      if (hit.recovered) {
-        return {
-          ok: false,
-          tid: hit.tid,
-          error: '这条是从历史消息补回来的「已删除」，正文只有截断摘要，按设计不进思考/梦记，不能手改成思考。',
-          hint: '要改的话先找找有没有原文；没原文就只能当摘要看着。',
-        }
-      }
       if (args.undo === true) {
         const r = setOverride(hit.id || tid, null)
         return { ...r, tid: hit.tid, message: '撤销了，这条回到按规则自动判。' }
@@ -466,19 +359,17 @@ export function apply(ctx, config, cfgIn) {
   tool({
     name: 'qzone_echo_export',
     description: '把库导成文件：Markdown（按年分组、可读）或 JSON（完整字段）。\n'
-      + '**一栏一份**：thoughts=思考/感想（默认）、dreams=梦记、reviews=介绍/推荐（书评绘本这种）、'
-      + 'deleted=已经删掉的（从历史消息补回来的摘要）、all=全部。',
+      + '**一栏一份**：thoughts=思考/感想（默认）、dreams=梦记、reviews=介绍/推荐（书评绘本这种）、all=全部。',
     parameters: {
       format: { type: 'string', description: 'md（默认）/ json' },
-      scope: { type: 'string', description: 'thoughts（默认）/ dreams / reviews / deleted / all' },
+      scope: { type: 'string', description: 'thoughts（默认）/ dreams / reviews / all' },
       name: { type: 'string', description: '文件名（可省，默认带日期）' },
     },
     async execute(args) {
       const scope = String(args.scope || 'thoughts')
       const list = scope === 'all' ? loadAll()
         : (scope === 'dreams' ? loadDreams()
-          : (scope === 'reviews' ? loadReviews()
-            : (scope === 'deleted' ? loadDeleted() : loadThoughts())))
+          : (scope === 'reviews' ? loadReviews() : loadThoughts()))
       if (!list.length) return { ok: false, error: scope === 'dreams' ? '库里还没有梦记' : '库里还没有数据，先 qzone_echo_sync' }
       if (String(args.format || 'md').toLowerCase() === 'json') {
         const r = exportJson(list)
@@ -488,7 +379,6 @@ export function apply(ctx, config, cfgIn) {
         onlyThoughts: scope === 'thoughts',
         onlyDreams: scope === 'dreams',
         onlyReviews: scope === 'reviews',
-        onlyDeleted: scope === 'deleted',
         name: args.name ? String(args.name) : '',
       })
       return { ok: true, ...r, scope }
@@ -535,9 +425,9 @@ export function apply(ctx, config, cfgIn) {
     name: 'qzone_echo_images',
     description: '把说说里的配图**下到本地**（默认 `$DSH_HOME/qzone-echo/images/<年>/`）。\n'
       + '不烧 token：只写磁盘，不把图片喂给模型。同 URL 只存一份，已下过就跳过。\n'
-      + 'scope 同 export：all（默认）/ thoughts / dreams / deleted；year 可只下某一年。',
+      + 'scope 同 export：all（默认）/ thoughts / dreams；year 可只下某一年。',
     parameters: {
-      scope: { type: 'string', description: 'all（默认）/ thoughts / dreams / deleted' },
+      scope: { type: 'string', description: 'all（默认）/ thoughts / dreams' },
       year: { type: 'number', description: '只下某一年的（可省）' },
       limit: { type: 'number', description: '最多处理多少条说说（0/省略 = 不限）' },
       force: { type: 'boolean', description: '已有文件也重下' },
@@ -690,14 +580,13 @@ export function apply(ctx, config, cfgIn) {
         uin: cred?.uin || null,
         cookieSavedAt: cred?.savedAt || null,
         library: s,
+        longtext: repairStatus(),
         years: Object.keys(s.years || {}).map(Number).filter(Boolean).sort((a, b) => b - a),
         config: cfg,
         home: homeDir(),
         exportDir: cfg.exportDir || paths().out,
         images: imageStats(),
         auto: { ...autoState(), nextRun: gate.run ? null : gate.nextAt || null, why: gate.why },
-        // 补历史（已删说说）的断点：上次翻到哪、翻完没
-        history: historyState(),
       })
     }
 
@@ -739,70 +628,14 @@ export function apply(ctx, config, cfgIn) {
       return sendJson(res, r.ok ? 200 : 400, r)
     }
 
-    // 历史消息列表：补回**已删除**的说说（只有摘要）。默认不跑，得页面/工具明确要。
-    if (path === '/history' && req.method === 'POST') {
-      const body = await readBody(req)
-      const r = await syncHistory({
-        maxPages: body.maxPages ? Number(body.maxPages) : undefined,
-        intervalMs: body.intervalMs != null ? Number(body.intervalMs) : undefined,
-        resume: body.resume !== false,
-      })
-      return sendJson(res, r.ok ? 200 : 400, r)
-    }
 
-    // ⭐ 逐条验活：拿 tid 直接问腾讯「这条还在不在」（唯一能判「删没删」的硬办法）
+    // 长文补全：腾讯接口只给前 500 字，这里跑后台断点修复
     if (path === '/repair-longtext' && req.method === 'GET') return sendJson(res, 200, repairStatus())
     if (path === '/repair-longtext' && req.method === 'POST') {
       const body = await readBody(req)
       return sendJson(res, 200, configureRepair({ enabled: body.enabled !== false }))
     }
 
-    if (path === '/verify' && req.method === 'POST') {
-      const body = await readBody(req)
-      const r = await syncVerify({
-        max: body.max ? Number(body.max) : undefined,
-        intervalMs: body.intervalMs != null ? Number(body.intervalMs) : undefined,
-        redo: body.redo === true,
-        since: body.since ? String(body.since) : '',
-      })
-      return sendJson(res, r.ok ? 200 : 400, r)
-    }
-
-    // 把「已删除」栏里某条移出去（误判出口）：移出 / 撤销 / 清空
-    if (path === '/dismiss' && req.method === 'POST') {
-      const body = await readBody(req)
-      if (body.undoAll === true) {
-        const r = clearDismissed()
-        return sendJson(res, r.ok === false ? 400 : 200, { ...r, stats: stats() })
-      }
-      const key = String(body.tid || body.id || '').trim()
-      if (!key) return sendJson(res, 400, { ok: false, error: '缺 tid' })
-      const all = loadAll()
-      const hit = all.find((m) => m.id === key) || all.find((m) => String(m.tid) === key)
-      if (!hit) return sendJson(res, 404, { ok: false, error: `库里没有这条：${key}` })
-      const undo = body.undo === true
-      if (!undo && !isDeletedRow(hit)) {
-        return sendJson(res, 400, { ok: false, error: '这条现在不在「已删除」栏里', tid: hit.tid })
-      }
-      const r = setDismissed(hit.id || key, undo ? null : true, String(body.note || ''))
-      return sendJson(res, r.ok === false ? 400 : 200, { ...r, tid: hit.tid, stats: stats() })
-    }
-
-    // 手动移出过哪些（页面上能一条条看、一条条撤）
-    if (path === '/dismissed' && req.method === 'GET') {
-      const dis = loadDismissed()
-      const all = loadAll()
-      const byId = new Map(all.map((m) => [m.id || String(m.tid), m]))
-      const items = [...dis.entries()].filter(([, v]) => v === true).map(([id]) => {
-        const m = byId.get(id)
-        return {
-          id, tid: m?.tid || '', time: m?.time || '',
-          content: String(m?.content || '').slice(0, 90),
-          why: m?.recovered ? '历史消息补回' : (m?.gone ? '验活查出已删' : ''),
-        }
-      }).sort((a, b) => String(b.time).localeCompare(String(a.time)))
-      return sendJson(res, 200, { ok: true, total: items.length, items })
-    }
 
     // 自动同步的开关与间隔（页面上一个勾 + 一个数字）
     if (path === '/auto' && req.method === 'POST') {
@@ -827,8 +660,7 @@ export function apply(ctx, config, cfgIn) {
       const offset = Math.max(0, Number(q.get('offset')) || 0)
       let list = scope === 'all' ? loadAll()
         : (scope === 'dreams' ? loadDreams()
-          : (scope === 'reviews' ? loadReviews()
-            : (scope === 'deleted' ? loadDeleted() : loadThoughts())))
+          : (scope === 'reviews' ? loadReviews() : loadThoughts()))
       const year = Number(q.get('year')) || 0
       if (year) list = list.filter(m => postPeriod(m).year === String(year))
       const month = Number(q.get('month')) || 0
@@ -858,8 +690,7 @@ export function apply(ctx, config, cfgIn) {
       const scope = String(body.scope || 'thoughts')
       const list = scope === 'all' ? loadAll()
         : (scope === 'dreams' ? loadDreams()
-          : (scope === 'reviews' ? loadReviews()
-            : (scope === 'deleted' ? loadDeleted() : loadThoughts())))
+          : (scope === 'reviews' ? loadReviews() : loadThoughts()))
       if (!list.length) return sendJson(res, 400, { ok: false, error: scope === 'dreams' ? '库里还没有梦记' : '库里还没有数据' })
       const r = String(body.format || 'md').toLowerCase() === 'json'
         ? exportJson(list)
@@ -867,7 +698,6 @@ export function apply(ctx, config, cfgIn) {
           onlyThoughts: scope === 'thoughts',
           onlyDreams: scope === 'dreams',
           onlyReviews: scope === 'reviews',
-          onlyDeleted: scope === 'deleted',
         })
       return sendJson(res, 200, { ok: true, ...r, scope })
     }
@@ -884,14 +714,6 @@ export function apply(ctx, config, cfgIn) {
       if (!tid) return sendJson(res, 400, { ok: false, error: '缺 tid' })
       const hit = all.find((m) => m.id === tid) || all.find((m) => String(m.tid) === tid)
       if (!hit) return sendJson(res, 404, { ok: false, error: `库里没有这条：${tid}` })
-      // 补回来的「已删除」只有截断摘要，按设计不进思考/梦记 —— 别让人点了个不生效的按钮
-      if (hit.recovered) {
-        return sendJson(res, 400, {
-          ok: false,
-          tid: hit.tid,
-          error: '这条是补回来的「已删除」，正文只有摘要，按设计不进思考/梦记，改不了。',
-        })
-      }
       // ② 撤销单条：thought 传 null / 或 undo: true
       const undo = body.undo === true || body.thought === null
       const r = setOverride(hit.id || tid, undo ? null : body.thought === true, String(body.note || ''))
@@ -1214,21 +1036,6 @@ function shape(m, full = true) {
     comments: (m.comments || []).length,
     replies: (m.comments || []).reduce((n, c) => n + (c.replies?.length || 0), 0),
   }
-  // 补回的历史消息：让调用方一眼看出「这条是摘要、而且可能已经删了」
-  if (m.recovered) {
-    base.recovered = true
-    base.truncated = Boolean(m.truncated)
-    if (m.possiblyDeleted) base.possiblyDeleted = true
-    if (m.interactor) base.interactor = m.interactor
-  }
-  // 逐条验活查出来的「真没了」：正文是本地全文，比历史消息的摘要强得多
-  if (m.gone) {
-    base.gone = true
-    if (m.goneAt) base.goneAt = m.goneAt
-  }
-  // 查过没查过（没查成的不会打时间戳，下次会重查）
-  if (m.verifiedAt) { base.verifiedAt = m.verifiedAt; base.alive = m.alive === true }
-  if (m.dismissed) base.dismissed = true
   // ⚠️ 腾讯对正文有 500 字硬上限，超长说说默认只给开头一截。
   //    这里如实告诉调用方「这条可能不全」，别让人以为原文就这么短。
   if (m.contentIncomplete === true) base.contentIncomplete = true

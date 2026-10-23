@@ -172,9 +172,6 @@ window.__ModuleLoader__.load({
       const [autoImages, setAutoImages] = React.useState(false)
       const [imgStat, setImgStat] = React.useState(null)
       const [month, setMonth] = React.useState('')
-      const [historyPages, setHistoryPages] = React.useState(50)  // 历史消息列表最多翻多少页
-      const [verifyMax, setVerifyMax] = React.useState(300)       // 一轮验活最多查多少条
-      const [dismissList, setDismissList] = React.useState([])    // 手动移出「已删除」的记录
       const [autoSync, setAutoSync] = React.useState(false)
       const [everyHours, setEveryHours] = React.useState(6)
       const [fixList, setFixList] = React.useState([])  // 手改过哪些条（能看见、能撤）
@@ -202,11 +199,6 @@ window.__ModuleLoader__.load({
             const f = await jget('/corrections')
             setFixList(Array.isArray(f?.items) ? f.items : [])
           } catch { setFixList([]) }
-          // 手动移出「已删除」清单（同样是后悔药）
-          try {
-            const g = await jget('/dismissed')
-            setDismissList(Array.isArray(g?.items) ? g.items : [])
-          } catch { setDismissList([]) }
         } catch (e) {
           if (e?.needLogin) { setNeedLogin(true); setSt(null); return }
           setMsg({ tone: 'bad', text: `读状态失败：${e.message}` })
@@ -270,49 +262,6 @@ window.__ModuleLoader__.load({
         await reload()
       })
 
-      // 历史消息列表：补回已经删掉的说说（只有摘要）。慢且重，所以单独一个按钮。
-      const onHistory = () => run('history', async () => {
-        setMsg({ tone: 'info', text: '正在翻历史消息列表…这条通道慢（每页隔将近 1 秒），几十页要几分钟，别关页面哦。' })
-        const r = await jpost('/history', { maxPages: Number(historyPages) || 50 })
-        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '没翻成' }); return }
-        setMsg({
-          tone: 'good',
-          text: `翻完了 ${fmt(r.pages)} 页（${r.stopped}）：扫到 ${fmt(r.scanned)} 条互动记录，`
-            + `其中疑似已删 ${fmt(r.possiblyDeleted)} 条、还活着 ${fmt(r.stillAlive)} 条 → 新入库 ${fmt(r.added)} 条。`
-            + '⚠️ 补回来的正文是摘要（接口截断过），不是原文。',
-        })
-        await reload()
-      })
-
-      // ⭐ 逐条验活：拿 tid 直接问腾讯「这条还在不在」。这是唯一能判「删没删」的硬办法。
-      const onVerify = () => run('verify', async () => {
-        setMsg({ tone: 'info', text: `正在逐条问（每条约 1.2 秒，${Number(verifyMax) || 300} 条要几分钟）…别关页面哦。` })
-        const r = await jpost('/verify', { max: Number(verifyMax) || 300 })
-        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '没查成' }); return }
-        setMsg({
-          tone: 'good',
-          text: `验活 ${fmt(r.checked)} 条（进度 ${r.progress}）：还在 ${fmt(r.alive)}、已删 ${fmt(r.gone)}、没查成 ${fmt(r.unknown)}。`
-            + `「已删除」栏现在 ${fmt(r.deleted)} 条。`
-            + (Number(r.remaining) > 0 ? `还有 ${fmt(r.remaining)} 条没查，接着再点一次就行（查过的不会重查）。` : ''),
-        })
-        await reload()
-      })
-
-      // 撤销「手动移出」：让这条回到自动判
-      const onUndismiss = (id) => run('dismiss', async () => {
-        const r = await jpost('/dismiss', { tid: id, undo: true })
-        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '撤不了' }); return }
-        setMsg({ tone: 'good', text: '撤销了，这条回到按自动判。' })
-        await reload()
-      })
-
-      const onUndismissAll = () => run('dismiss', async () => {
-        const r = await jpost('/dismiss', { undoAll: true })
-        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '撤不了' }); return }
-        setMsg({ tone: 'good', text: `全部撤销了（${fmt(r.cleared)} 条移出记录清空），现在全按自动判。` })
-        await reload()
-      })
-
       const onSaveCfg = () => run('cfg', async () => {        const r = await jpost('/config', { thoughtThreshold: Number(threshold) || 45, maxPerSync: Number(maxN) || 500 })
         setMsg({ tone: 'good', text: `设置存好了（分数线 ${r?.config?.thoughtThreshold}，单次最多 ${fmt(r?.config?.maxPerSync)} 条）` })
         await reload()
@@ -336,6 +285,21 @@ window.__ModuleLoader__.load({
         const r = await jpost('/fix', { undoAll: true })
         if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '撤不了' }); return }
         setMsg({ tone: 'good', text: `全部撤销了（${fmt(r.cleared)} 条手改记录清空），现在全按规则自动判。` })
+        await reload()
+      })
+
+      // 长文补全（腾讯接口只给前 500 字，靠详情接口补回全文）
+      const onRepairLongtext = () => run('longtext', async () => {
+        const r = await jpost('/repair-longtext', { enabled: true })
+        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '启动失败' }); return }
+        setMsg({ tone: 'info', text: '已经开起来了，后台会自己慢慢补（每条隔 3.5 秒）。撞限流会自己歇一会儿，进度看「刷新进度」。' })
+        await reload()
+      })
+
+      const configureLongtext = (enabled) => run('longtext', async () => {
+        const r = await jpost('/repair-longtext', { enabled })
+        if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '没改成' }); return }
+        setMsg({ tone: 'good', text: enabled ? '接着补。' : '先歇着，断点都留着，随时能接着跑。' })
         await reload()
       })
 
@@ -540,7 +504,7 @@ window.__ModuleLoader__.load({
               ? `已登录：uin ${st.uin}（Cookie 存于 ${st.cookieSavedAt ? new Date(st.cookieSavedAt).toLocaleString('zh-CN') : '之前'}）`
               : '还没粘 Cookie —— 下面第一步'),
           h('div', { 'data-qz-kv': '' },
-            `库里 ${fmt(lib.total)} 条说说：「思考/感想」${fmt(lib.thoughts)} 条，「梦记」${fmt(lib.dreams)} 条，「介绍/推荐」${fmt(lib.reviews)} 条，「已删除」${fmt(lib.deleted)} 条`,
+            `库里 ${fmt(lib.total)} 条说说：「思考/感想」${fmt(lib.thoughts)} 条，「梦记」${fmt(lib.dreams)} 条，「介绍/推荐」${fmt(lib.reviews)} 条`,
             lib.first ? ` · 覆盖 ${lib.first} ~ ${lib.last}` : ''),
           h('div', { 'data-qz-note': '' }, `按年份：${yearText}`),
           h('div', { 'data-qz-note': '' }, `梦记按年份：${dreamYearText}`),
@@ -592,79 +556,31 @@ window.__ModuleLoader__.load({
             + '全量会把能翻到的都扫一遍（每页 20 条、页间留间隔，别让腾讯觉得是在被扒）。'),
         ),
 
-        // ②.5 补回已删除的（历史消息列表）—— 降级成辅助，主力是下面 ②.6
+        // ③ 长说说补全（腾讯只给前 500 字，插件自己补全文）
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '②.5 探一眼最近有没有新删的（辅助）'),
+          h('div', { 'data-qz-h': '' }, '③ 长说说补全（腾讯只给前 500 字，靠它补回全文）'),
           h('div', { 'data-qz-kv': '' },
-            '走的是「谁在我某条说说下评论/点赞过」那份记录。说说删了它还在，所以能捞回带时间的残影。'),
-          st?.history
+            '腾讯的接口对超长说说只返回开头一截。这里逐条去打详情接口核对，'
+            + '只补长、不缩短；撞限流会自动歇着，断点存着，随时停随时接着跑。'),
+          st?.longtext
             ? h('div', { 'data-qz-note': '' },
-              `上次翻到第 ${fmt(st.history.nextOffset || 0)} 条`
-              + (st.history.doneAt ? '（已翻到底）' : '（中途停的，下次接着来）')
-              + (st.history.updatedAt ? ` · ${new Date(st.history.updatedAt).toLocaleString('zh-CN')}` : ''))
+              `候选 ${fmt(st.longtext.candidates || 0)} 条 · 已核对 ${fmt(st.longtext.checked || 0)} 条 · 补全过 ${fmt(st.longtext.expanded || 0)} 篇`
+              + (st.longtext.lastError ? ` · 上次被挡：${st.longtext.lastError}` : '')
+              + (st.longtext.nextRetryAt ? `（${new Date(st.longtext.nextRetryAt).toLocaleString('zh-CN')} 后再试）` : ''))
             : null,
           h('div', { 'data-qz-row': '' },
-            h('span', { 'data-qz-label': '' }, '最多翻'),
-            h('input', {
-              'data-qz-input': '', 'data-qz-num': '', type: 'number', min: 1, max: 500,
-              value: historyPages, onChange: (e) => setHistoryPages(Number(e.target.value) || 50),
-            }),
-            h('span', { 'data-qz-label': '' }, '页'),
-            h('button', { 'data-qz-btn': '', disabled: busy === 'history' || !st?.loggedIn, onClick: onHistory },
-              busy === 'history' ? '正在翻历史…' : '找找删掉的')),
+            h('button', { 'data-qz-btn': '', 'data-primary': '', disabled: busy === 'longtext' || !st?.loggedIn, onClick: onRepairLongtext },
+              busy === 'longtext' ? '正在处理…' : '开始 / 接着补全'),
+            h('button', { 'data-qz-btn': '', disabled: busy === 'longtext' || !st?.loggedIn, onClick: () => configureLongtext(false) }, '暂停'),
+            h('button', { 'data-qz-btn': '', onClick: reload }, '刷新进度')),
           h('div', { 'data-qz-note': '' },
-            '⚠️ 实测局限：这条通道只看得到**最近几天**（翻不下去），拿回的也只是**摘要**，'
-            + '而且翻到第 3 页左右就会被腾讯 WAF 拦（HTTP 501）。所以它只适合顺手探一眼，'
-            + '要正经找多年前删掉的，用下面 ②.6 的「逐条验活」。'),
+            '⚠️ 慢：每条间隔 3.5 秒、每批 5 条，撞限流会自己冷却半小时再试。'
+            + '修复前会自动备份 feed，正文只补长不缩短，随时可以停。'),
         ),
 
-        // ②.6 逐条验活（真正能判「删没删」的硬办法）
+        // ④ 自动增量
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '②.6 逐条验活（查「删没删」最准的办法）'),
-          h('div', { 'data-qz-kv': '' },
-            '拿库里每条的 tid 直接问腾讯「这条还在不在」。'
-            + '活着的顺便把全文补齐，删了的用**本地全文**进「已删除」栏（比历史消息的摘要强得多）。'
-            + '跟有没有人评论过无关、跟正文改没改过也无关（tid 不变就不影响）。'),
-          st?.library
-            ? h('div', { 'data-qz-note': '' },
-              `待查 ${fmt((st.library.total || 0) - (st.library.verified || 0))} 条`
-              + (st.library.verified ? ` · 已查 ${fmt(st.library.verified)} 条（活着 ${fmt(st.library.alive || 0)}）` : ''))
-            : null,
-          h('div', { 'data-qz-row': '' },
-            h('span', { 'data-qz-label': '' }, '这一轮查'),
-            h('input', {
-              'data-qz-input': '', 'data-qz-num': '', type: 'number', min: 10, max: 3000,
-              value: verifyMax, onChange: (e) => setVerifyMax(Number(e.target.value) || 300),
-            }),
-            h('span', { 'data-qz-label': '' }, '条'),
-            h('button', { 'data-qz-btn': '', 'data-primary': '', disabled: busy === 'verify' || !st?.loggedIn, onClick: onVerify },
-              busy === 'verify' ? '正在逐条问…' : '开始验活')),
-          h('div', { 'data-qz-note': '' },
-            '⚠️ 慢：平均 1.2 秒/条（查得太快会被腾讯 WAF 拦，所以间隔 400ms）。'
-            + '300 条 ≈ 6 分钟，几千条要分几轮跑 —— 查过的会打时间戳、下次自动接着来，断了也不重复查。'
-            + '只信腾讯明确回的「还在」和「已被删除」两种，其它情况（风控/网络）算「没查成」，绝不乱标。'),
-        ),
-
-        // ②.7 手动移出去过哪些（误判的后悔药）
-        dismissList.length
-          ? h('div', { 'data-qz-sec': '' },
-            h('div', { 'data-qz-h': '' }, `②.7 你手动移出「已删除」的 ${dismissList.length} 条`),
-            h('div', { 'data-qz-kv': '' },
-              '判定删没删永远会有假阳性（本地没同步过那个年份、删了重发、正文被编辑过），这些是你亲手判过「其实没删 / 是重复的」的。'),
-            ...dismissList.slice(0, 20).map((it) => h('div', { 'data-qz-row': '', key: it.id },
-              h('span', { 'data-qz-label': '', style: { flex: '0 0 auto' } }, it.time || ''),
-              h('span', { 'data-qz-kv': '', style: { flex: '1 1 auto' } },
-                String(it.content || '').slice(0, 46) + (it.why ? `（${it.why}）` : '')),
-              h('button', { 'data-qz-btn': '', disabled: busy === 'dismiss' || !st?.loggedIn, onClick: () => onUndismiss(it.id) }, '让它回来'))),
-            h('div', { 'data-qz-row': '' },
-              h('button', { 'data-qz-btn': '', disabled: busy === 'dismiss' || !st?.loggedIn, onClick: onUndismissAll },
-                '全部撤销（回到自动判）')),
-          )
-          : null,
-
-        // ③ 自动增量
-        h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '③ 不断收新发的'),
+          h('div', { 'data-qz-h': '' }, '④ 不断收新发的'),
           h('div', { 'data-qz-kv': '' },
             autoSync
               ? `开着：每 ${fmt(everyHours)} 小时补一次新发的`
@@ -683,9 +599,9 @@ window.__ModuleLoader__.load({
             ? h('div', { 'data-qz-note': '' }, `下次大约 ${new Date(st.auto.nextRun).toLocaleString('zh-CN')}`)
             : null),
 
-        // ③ 配图
+        // ⑤ 配图
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '④ 配图存到本地'),
+          h('div', { 'data-qz-h': '' }, '⑤ 配图存到本地'),
           h('div', { 'data-qz-kv': '' },
             imgStat
               ? `带图的说说 ${fmt(imgStat.postsWithImages)} 条，共 ${fmt(imgStat.urls)} 张；已下 ${fmt(imgStat.local)} 张，还差 ${fmt(imgStat.missing)} 张，占 ${(Number(imgStat.size || 0) / 1048576).toFixed(1)} MB`
@@ -700,9 +616,9 @@ window.__ModuleLoader__.load({
               autoImages ? '同步后自动下图：开' : '同步后自动下图：关')),
         ),
 
-        // ④ 分数线
+        // ⑥ 分数线
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '⑤ 「思考/感想」的分数线'),
+          h('div', { 'data-qz-h': '' }, '⑥ 「思考/感想」的分数线'),
           h('div', { 'data-qz-row': '' },
             h('input', {
               'data-qz-input': '', 'data-qz-num': '', type: 'number', min: 0, max: 100,
@@ -712,14 +628,14 @@ window.__ModuleLoader__.load({
             h('span', { 'data-qz-note': '' }, '越低筛出的越多（误判也越多）。规则只看词和结构，别把它当判决。')),
         ),
 
-        // ⑥ 看与导出 —— 统一在网页版做
+        // ⑦ 看与导出 —— 统一在网页版做
         // 老大 2026-10-22：「在dsh插件里也显示我的说说有点麻烦了…要不所有导出说说只在网页吧，
         // dsh设置就是起到一个设置的作用。」所以这里不再渲染列表，只留一个入口 + 一句导出去哪看。
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '⑥ 看 / 搜 / 导出（都在网页版）'),
+          h('div', { 'data-qz-h': '' }, '⑦ 看 / 搜 / 导出（都在网页版）'),
           h('div', { 'data-qz-kv': '' },
             `现有：全部 ${fmt(lib.total)} 条 · 思考 ${fmt(lib.thoughts)} · 梦记 ${fmt(lib.dreams)}`
-            + ` · 介绍/推荐 ${fmt(lib.reviews)} · 已删除 ${fmt(lib.deleted)}`),
+            + ` · 介绍/推荐 ${fmt(lib.reviews)}`),
           h('div', { 'data-qz-row': '' },
             h('button', { 'data-qz-btn': '', 'data-primary': '', onClick: openWeb }, '打开网页版 ↗')),
           h('div', { 'data-qz-note': '' },
@@ -729,10 +645,10 @@ window.__ModuleLoader__.load({
             `导出文件会落在：${st?.exportDir || '家目录/out'}（网页版点「导出」也会告诉你路径，可以直接打开看）。`),
         ),
 
-        // ⑦ 手改过的（能看见、能撤 —— 误点的时候这里就是后悔药）
+        // ⑧ 手改过的（能看见、能撤 —— 误点的时候这里就是后悔药）
         fixList.length
           ? h('div', { 'data-qz-sec': '' },
-            h('div', { 'data-qz-h': '' }, `⑦ 你手动改过的（${fmt(fixList.length)} 条）`),
+            h('div', { 'data-qz-h': '' }, `⑧ 你手动改过的（${fmt(fixList.length)} 条）`),
             h('div', { 'data-qz-note': '' },
               '这些不受分数线管、也不受规则升级影响。点错了就在这里撤掉，撤掉后回到「按规则自动判」。'),
             h('div', { 'data-qz-fixed': '' }, ...fixList.slice(0, 20).map((f) => h('div', { key: f.id, 'data-qz-fixedrow': '' },
@@ -743,9 +659,9 @@ window.__ModuleLoader__.load({
               h('button', { 'data-qz-btn': '', 'data-danger': '', disabled: busy === 'fix', onClick: onUndoAll }, '全部撤销（回到自动判）')))
           : null,
 
-        // ⑥ 清理某个号
+        // ⑨ 清理某个号
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '⑧ 清掉某个号的数据'),
+          h('div', { 'data-qz-h': '' }, '⑨ 清掉某个号的数据'),
           h('div', { 'data-qz-note': '' },
             '想拿别的号试一把的时候用。「预览」只数条数，点「确定删掉」才真删 —— 不可逆，删之前先确认真的是那个号。'),
           (st?.library?.owners || []).length
@@ -768,9 +684,9 @@ window.__ModuleLoader__.load({
               : null),
         ),
 
-        // ⑦ 网页版口令
+        // ⑩ 网页版口令
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '⑨ 网页版要不要口令'),
+          h('div', { 'data-qz-h': '' }, '⑩ 网页版要不要口令'),
           h('div', { 'data-qz-note': '' },
             lockOn
               ? `现在【有口令】${lockSetAt ? `（${String(lockSetAt).slice(0, 10)} 设的）` : ''}。网页版除了登录框什么都看不到；改或撤都要先填当前口令。`
@@ -798,9 +714,9 @@ window.__ModuleLoader__.load({
             '口令只存 scrypt 派生值（不存明文），登录态在内存里 —— 插件重载或宿主重启就要重新输。',
             lockOn && lockHint ? ` 提示：${lockHint}` : '')),
 
-        // ⑧ 网址藏起来（随机前缀）
+        // ⑪ 网址藏起来（随机前缀）
         h('div', { 'data-qz-sec': '' },
-          h('div', { 'data-qz-h': '' }, '⑩ 网页版网址（要不要藏）'),
+          h('div', { 'data-qz-h': '' }, '⑪ 网页版网址（要不要藏）'),
           h('div', { 'data-qz-note': '' },
             '现在入口：', h('code', { 'data-qz-code': '' }, `${webOrigin}${webPath}`),
             h('br'),
