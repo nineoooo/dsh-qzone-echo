@@ -252,17 +252,31 @@ window.__ModuleLoader__.load({
           body.incremental = true
         }
         const r = await jpost('/sync', body)
+        // ⚠️ 登录失效会伪装成「同步好了，新增 0 条」—— 必须比其他提示优先说清（2026-10-27 修）
+        if (r?.needCookie) {
+          setMsg({ tone: 'bad', text: 'Cookie 失效了，这次一条都没进来。去上面重新粘一次 Cookie 再同步哦。' })
+          await reload()
+          return
+        }
         if (r?.ok === false) { setMsg({ tone: 'bad', text: r.error || '同步失败' }); return }
         const tag = r.month ? `（只收 ${r.month}）` : (r.incremental ? '（增量）' : '')
+        const tail = [
+          r.resumed ? `从第 ${fmt(r.startPos)} 条续跑的` : '',
+          r.nextPos ? `下次接着从第 ${fmt(r.nextPos)} 条翻` : '',
+          r.guessedEnd ? '（连续几页都是已有的，先当翻到底了；想再往下核就手动填起始位置）' : '',
+        ].filter(Boolean).join('，')
         setMsg({
-          tone: 'good',
-          text: `同步好了${tag}：这次抓到 ${fmt(r.fetched)} 条（${r.pages} 页，跳过 ${fmt(r.skipped || 0)}），新增 ${fmt(r.added)}，更新 ${fmt(r.updated)}，`
-            + `库里共 ${fmt(r.total)} 条，其中「思考」${fmt(r.thoughts)} 条、「梦记」${fmt(r.dreams)} 条`,
+          // 中途停 / 只是猜到底 → 用 warn，别让人以为全收完了
+          tone: (r.partial || r.guessedEnd) ? 'warn' : 'good',
+          text: `${r.partial ? '同步中断了' : '同步好了'}${tag}${r.stopped ? `（${r.stopped}）` : ''}：`
+            + `这次抓到 ${fmt(r.fetched)} 条（${r.pages} 页，跳过 ${fmt(r.skipped || 0)}），新增 ${fmt(r.added)}，更新 ${fmt(r.updated)}，`
+            + `库里共 ${fmt(r.total)} 条，其中「思考」${fmt(r.thoughts)} 条、「梦记」${fmt(r.dreams)} 条`
+            + (tail ? `。${tail}` : ''),
         })
         await reload()
       })
 
-      const onSaveCfg = () => run('cfg', async () => {        const r = await jpost('/config', { thoughtThreshold: Number(threshold) || 45, maxPerSync: Number(maxN) || 500 })
+      const onSaveCfg = () => run('cfg', async () => {        const r = await jpost('/config', { thoughtThreshold: Number(threshold) || 45, maxPerSync: Number(maxN) || 12000 })
         setMsg({ tone: 'good', text: `设置存好了（分数线 ${r?.config?.thoughtThreshold}，单次最多 ${fmt(r?.config?.maxPerSync)} 条）` })
         await reload()
       })

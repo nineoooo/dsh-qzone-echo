@@ -48,8 +48,8 @@ export const inject = ['webServer', 'tools', 'settings']
 export const Config = !z ? undefined : z.object({
   /** 每页拉多少条（实测：≤40 有效，>40 服务端静默退化成 10） */
   pageSize: z.natural().default(40).extra('volatile', true),
-  /** 一次同步最多收多少条 */
-  maxPerSync: z.natural().default(500).extra('volatile', true),
+  /** 一次同步最多收多少条（跟 lib/store.mjs 的 DEFAULT_CONFIG 保持一致；单次时长另有 10 分钟兜底） */
+  maxPerSync: z.natural().default(12000).extra('volatile', true),
   /** 判定为「思考/感想」的分数线（0~100） */
   thoughtThreshold: z.natural().default(45).extra('volatile', true),
   /** 同步后自动导出一份 Markdown */
@@ -147,7 +147,7 @@ export function apply(ctx, config, cfgIn) {
 
   tool({
     name: 'qzone_echo_status',
-    description: '看 QQ说说收集 现在什么状态：有没有 Cookie、库里多少条、多少条被判为「思考」、多少条「梦记」、多少条「介绍/推荐」、多少条「已经删掉的」、覆盖哪些年份、导出目录在哪。',
+    description: '看 QQ说说收集 现在什么状态：有没有 Cookie、库里多少条、多少条被判为「思考」、多少条「梦记」、多少条「介绍/推荐」、覆盖哪些年份、导出目录在哪。',
     parameters: {},
     async execute() {
       const cred = getCredential()
@@ -183,11 +183,11 @@ export function apply(ctx, config, cfgIn) {
       + '`incremental: true` 只收新发的（翻到库里已有的就停，最省时间，定时器就靠它）。\n'
       + '同步时顺手给每条打「思考/感想」分，同时把「梦记」单独挑出来。 Cookie 还没存过就先 qzone_echo_login。',
     parameters: {
-      max: { type: 'number', description: '这次最多收多少条（默认按设置，通常 500）' },
+      max: { type: 'number', description: '这次最多收多少条（默认按设置，通常 12000；单次另有时长兜底）' },
       export: { type: 'boolean', description: '同步完是否顺手导出一份「思考」Markdown' },
       month: { type: 'string', description: '只收某一个月，写成 "2021-06"（可省）' },
       incremental: { type: 'boolean', description: '只收新发的（可省）' },
-      startPos: { type: 'number', description: '从第几条开始翻（默认 0）。库里已经到某一年的最早一条时，想再往前挖就从这条的位置接着翻，不用把已有的几千条重翻一遍（可省）' },
+      startPos: { type: 'number', description: '从第几条开始翻（可省）。不填时会自动接着上次中断的位置继续；想强制从头翻就填 0' },
     },
     async execute(args) {
       const r = await syncOnce({
@@ -195,7 +195,7 @@ export function apply(ctx, config, cfgIn) {
         export: args.export,
         month: args.month ? String(args.month) : '',
         incremental: kwargsTrue(args.incremental),
-        startPos: args.startPos ? Number(args.startPos) : 0,
+        startPos: args.startPos != null && args.startPos !== '' ? Number(args.startPos) : undefined,
       })
       if (!r.ok) return r
       return {
@@ -617,7 +617,8 @@ export function apply(ctx, config, cfgIn) {
     if (path === '/probe' && req.method === 'POST') {
       const sess = await openSession({})
       if (!sess.ok) return sendJson(res, 400, sess)
-      const r = await syncOnce({ max: 20 })
+      // track:false —— 这只是「摸一下通不通」，不该动真正的同步断点
+      const r = await syncOnce({ max: 20, track: false })
       return sendJson(res, r.ok ? 200 : 400, r)
     }
 
@@ -628,6 +629,8 @@ export function apply(ctx, config, cfgIn) {
         export: body.export,
         month: body.month ? String(body.month) : '',
         incremental: body.incremental === true,
+        // 不传 = 自动接着上次的断点；传 0 = 强制从头翻
+        startPos: body.startPos != null && body.startPos !== '' ? Number(body.startPos) : undefined,
       })
       return sendJson(res, r.ok ? 200 : 400, r)
     }

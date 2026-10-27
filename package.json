@@ -1,6 +1,6 @@
 {
   "name": "dsh-qzone-echo",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "description": "DSH 插件：把你自己 QQ 空间发过的说说收进本地库，自动分出「思考/感想」「梦记」「介绍/推荐」三栏，判错了三栏都能逐条手改、撤销也不误伤其他栏；配私人网页查看器与离线配图备份，Cookie 只存本机",
   "repository": {

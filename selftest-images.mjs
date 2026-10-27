@@ -3,6 +3,7 @@
  * 用 QZONE_ECHO_HOME 隔离，不碰真库。
  */
 import { createServer } from 'node:http'
+import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -64,12 +65,25 @@ console.log('m2.localImages', JSON.stringify(byId.m2.localImages))
 const years = readdirSync(join(HOME, 'images'))
 console.log('落盘年份目录', JSON.stringify(years), '文件数', readdirSync(join(HOME, 'images', years[0])).length)
 
+// ⚠️ 2026-10-27：这个脚本原来只打印不断言（等于什么都验不了）。按「已知正确」的结果补断言。
+assert.equal(r1.urls, 5, '三条说说共 5 个图片地址（a.png 被两条共用）')
+assert.equal(r1.downloaded, 2, '真正落盘的只有 2 个（a.png + b.png；a 只算一次）')
+assert.equal(r1.skipped, 1, 'a.png 第二次出现应算「跳过」')
+assert.equal(r1.failed, 2, '404 与 text/html 两个坏地址应记失败，且不冒充成功')
+assert.equal((byId.m1.localImages || []).length, 2, 'm1 的两张都应落到本地')
+assert.equal((byId.m2.localImages || [])[0] != null, true, 'm2 的 a.png（与 m1 共用）应命中同一份本地文件')
+assert.deepEqual((byId.m2.localImages || []).slice(1), [null, null], '坏地址位置留 null，不能塞垃圾路径')
+assert.ok(existsSync(join(HOME, 'images', years[0])), '图片应按年份落目录')
+
 const r2 = await downloadImages({ scope: 'all', concurrency: 2, delay: 0 })
 console.log('第二次（应几乎全跳过）', JSON.stringify({ urls: r2.urls, ok: r2.downloaded, skipped: r2.skipped, failed: r2.failed }))
+assert.equal(r2.downloaded, 0, '已经下过的不能再下一次')
 console.log('最终统计', JSON.stringify(imageStats()))
 
 // 关掉服务再跑：不该把已有文件弄丢，也不该重复下载
 server.close()
 const exists = existsSync(join(HOME, 'images', years[0]))
 console.log('目录还在', exists)
+assert.equal(exists, true, '源站关了，已经落地的文件也不能悄悄消失')
 console.log('HOME', HOME)
+console.log(`✅ 配图下载 10 条断言全部通过`)

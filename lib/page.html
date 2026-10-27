@@ -237,6 +237,11 @@
             hl(emoji(r.content || ''), terms) + '</div>');
         });
       });
+      // 接口只送前 10 条评论进来，剩下的以前是**静悄悄不显示**，看着像这条只有 10 条评论。
+      // 有多少就说多少（2026-10-27 修）。
+      if((m.comments || 0) > m.commentList.length){
+        h.push('<div class="c" style="color:#8fa0b3">…还有 ' + (m.comments - m.commentList.length) + ' 条评论没显示（库里存了 ' + m.comments + ' 条）</div>');
+      }
       h.push('</div>');
     }
     h.push('<div class="acts">');
