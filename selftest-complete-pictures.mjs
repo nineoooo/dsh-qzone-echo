@@ -9,7 +9,10 @@ const {fetchPostPictures,preserveCompletePictures}=await import('./lib/pictures.
 const {completeMissingPictures,missingPictureStats}=await import('./lib/image-repair.mjs')
 const urls=Array.from({length:50},(_,i)=>'https://qpic.cn/image-'+i+'.jpg')
 store.saveCredential('uin=o0123456; p_skey=synthetic','123456')
-const original={tid:'one',owner:'123456',content:'完整长文不可改',ts:1700000000,images:urls.slice(0,9),picTotal:13,localImages:['local-0',null,'local-2'],verifiedAt:'kept'}
+// ⚠️ 2026-10-28：这条原来用 verifiedAt:'kept' 验证「不认识的字段原样保留」，
+//    但 verifiedAt 现在是 persistable() 要剥掉的死字段（验活功能已删），
+//    换成中性的 customMarker —— 意图不变（不认识的字段不动），也不跟隐私清洗打架。
+const original={tid:'one',owner:'123456',content:'完整长文不可改',ts:1700000000,images:urls.slice(0,9),picTotal:13,localImages:['local-0',null,'local-2'],customMarker:'kept'}
 store.writeFeed([original,{...original,owner:'654321',content:'其他账号'}])
 store.writeThoughts([original])
 let calls=0
@@ -21,7 +24,7 @@ assert.equal((await fetchPostPictures({},'123456','one')).urls.length,13)
 let r=await completeMissingPictures({tid:'one',intervalMs:0})
 assert.equal(r.repaired,1);assert.equal(r.addedImages,4)
 let saved=store.loadAll().find(m=>m.owner==='123456')
-assert.equal(saved.images.length,13);assert.equal(saved.content,original.content);assert.equal(saved.verifiedAt,'kept')
+assert.equal(saved.images.length,13);assert.equal(saved.content,original.content);assert.equal(saved.customMarker,'kept')
 assert.equal(saved.localImages[0],'local-0');assert.equal(saved.localImages[1],null);assert.equal(saved.localImages[2],'local-2')
 assert.equal(store.loadAll().find(m=>m.owner==='654321').images.length,9)
 assert.equal(store.loadThoughts()[0].images.length,13)

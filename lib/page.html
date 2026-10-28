@@ -490,12 +490,16 @@
   // offset 由 load() 自己推进（按服务端实际给了几条），这里别再手动加一遍，否则会跳页
   more.addEventListener('click', function(){ load(false) });
   $('#btnExport').addEventListener('click', function(){
+    // 带上当前筛选的年/月：看着某个月点导出，就只导那一段，不用回头再找文件
+    var body = { format:'md', scope: state.scope };
+    if(state.year) body.year = state.year;
+    if(state.month) body.month = state.month;
     fetch(API + '/export', {
       method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ format:'md', scope: state.scope }),
+      body: JSON.stringify(body),
     }).then(function(r){ return r.json() }).then(function(d){
       if(!d || !d.ok) throw new Error((d && d.error) || '没成功');
-      toast('已导出：' + (d.file || d.name || '好了'));
+      toast('已导出 ' + (d.count != null ? d.count + ' 条：' : '') + (d.file || d.name || '好了'));
     }).catch(function(e){ toast('导出失败：' + e.message) });
   });
 

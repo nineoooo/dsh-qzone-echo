@@ -225,7 +225,7 @@
 | `qzone_echo_thoughts` | 只拿「思考」候选（分数从高到低） |
 | `qzone_echo_dreams` | 只拿「梦记」（时间倒序） |
 | `qzone_echo_fix` | 人工纠正一条的思考 / 梦记 / 推荐分类（`category` + `value`），或撤销（`undo` / `undoAll`） |
-| `qzone_echo_export` | 导出 Markdown / JSON（`scope=thoughts/dreams/reviews/all`） |
+| `qzone_echo_export` | 导出 Markdown / JSON（`scope=thoughts/dreams/reviews/all`，可加 `year` / `month` 只导一段） |
 | `qzone_echo_images` | 把配图下到本地（`dryRun: true` 只统计不下） |
 | `qzone_echo_image_job` | 后台慢慢补配图，断点续跑（`start` / `pause` / `status`） |
 | `qzone_echo_complete_images` | 补全一条说说里存漏了的图（一次一条，`tid` 指定） |
@@ -239,6 +239,8 @@
 | **JSON**（`.json`） | 原始条目数组，每条一堆字段：`tid / ts / time / content / images / localImages / comments / owner / share / forwarded …` | 给程序吃、自己再加工；**不是给人读的** |
 
 两个都在 `~/.dsh/qzone-echo/out/` 里，按钮点了会提示完整路径。
+
+网页上看某个月/某一年时点导出，就只导那一段（文件名自动带 `-2026` / `-2026-10`）。
 
 > ⚠️ Markdown 里的表情是**网络图**（`qzonestyle.gtimg.cn`），编辑器要能联网才显示得出来。
 > 本地离线看请看**网页版**，那里的图和表情都是同源/本地直出。

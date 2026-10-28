@@ -30,7 +30,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   ensureHome, paths, getConfig, saveConfig, getCredential, clearCredential, maskCookie, DEFAULT_CONFIG,
-  loadAll, loadThoughts, loadDreams, exportMarkdown, exportJson, statOf, homeDir, recomputeThoughts,
+  loadAll, loadThoughts, loadDreams, exportMarkdown, exportJson, filterByRange, statOf, homeDir, recomputeThoughts,
   purgeOwner, owners, setOverride, clearOverrides, loadOverrides, loadCategoryOverrides, loadReviews, logLine,
 } from './lib/store.mjs'
 import { syncOnce, saveCookie, stats, openSession, applyThreshold, autoSyncOnce, shouldAutoRun, autoState } from './lib/sync.mjs'
@@ -222,7 +222,7 @@ export function apply(ctx, config, cfgIn) {
       + 'kind：thought=被判为思考 / dream=梦记 / review=介绍推荐（书评绘本）/ forward=转发 / media=纯图 / share=分享卡片 / short=极短 / misc=其他。',
     parameters: {
       year: { type: 'number', description: '只看某一年（例如 2019）' },
-      keyword: { type: 'string', description: '正文包含这个词（支持多个词用空格分隔，任一命中）' },
+      keyword: { type: 'string', description: '正文/评论/转发里包含这些词（多词用空格分隔，需全部命中）' },
       kind: { type: 'string', description: 'thought / dream / review / forward / media / share / short / misc / all（默认 all）' },
       thoughtOnly: { type: 'boolean', description: '只要「思考/感想」那一类' },
       dreamOnly: { type: 'boolean', description: '只要「梦记」那一类' },
@@ -240,7 +240,7 @@ export function apply(ctx, config, cfgIn) {
       const kind = String(args.kind || 'all')
       const minScore = Number(args.minScore) || 0
       let list = all
-      if (year) list = list.filter((m) => m.ts && new Date(m.ts * 1000).getFullYear() === year)
+      if (year) list = list.filter((m) => postPeriod(m).year === String(year))
       if (kwargsTrue(args.thoughtOnly)) list = list.filter((m) => isThought(m, th))
       if (kwargsTrue(args.dreamOnly)) list = list.filter((m) => isDream(m))
       if (kind === 'dream') list = list.filter((m) => isDream(m))
@@ -249,8 +249,16 @@ export function apply(ctx, config, cfgIn) {
       if (minScore) list = list.filter((m) => (m.score ?? classify(m).score) >= minScore)
       if (kws.length) {
         list = list.filter((m) => {
-          const hay = `${m.content || ''} ${m.forwarded?.content || ''}`
-          return kws.some((k) => hay.includes(k))
+          const hay = [
+            m.content || '',
+            m.forwarded?.content || '',
+            m.forwarded?.name || '',
+            m.share?.name || '',
+            ...(m.comments || []).map((c) => `${c.name || ''} ${c.content || ''} ${(c.replies || []).map((r) => `${r.name || ''} ${r.content || ''}`).join(' ')}`),
+          ].join(' ').toLowerCase()
+          // ⚠️ 与网页版 /items 保持一致：多词是 AND（每词都命中），不是 OR。
+          //    以前 `kws.some(...)` 是任一命中，搜「狗 猫」会把只有「狗」的也捞出来。
+          return kws.every((k) => hay.includes(k.toLowerCase()))
         })
       }
       list = [...list].sort((a, b) => (b.ts || 0) - (a.ts || 0))
@@ -276,7 +284,7 @@ export function apply(ctx, config, cfgIn) {
       const th = Number(args.minScore) || Number(cfg.thoughtThreshold) || 45
       const year = args.year ? Number(args.year) : 0
       let list = loadAll().filter((m) => isThought(m, th))
-      if (year) list = list.filter((m) => m.ts && new Date(m.ts * 1000).getFullYear() === year)
+      if (year) list = list.filter((m) => postPeriod(m).year === String(year))
       list.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.ts || 0) - (a.ts || 0))
       const limit = Math.min(50, Math.max(1, Number(args.limit) || 15))
       return {
@@ -303,7 +311,7 @@ export function apply(ctx, config, cfgIn) {
     async execute(args) {
       const year = args.year ? Number(args.year) : 0
       let list = loadAll().filter((m) => isDream(m))
-      if (year) list = list.filter((m) => m.ts && new Date(m.ts * 1000).getFullYear() === year)
+      if (year) list = list.filter((m) => postPeriod(m).year === String(year))
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0))
       const limit = Math.min(100, Math.max(1, Number(args.limit) || 20))
       const offset = Math.max(0, Number(args.offset) || 0)
@@ -368,15 +376,20 @@ export function apply(ctx, config, cfgIn) {
       format: { type: 'string', description: 'md（默认）/ json' },
       scope: { type: 'string', description: 'thoughts（默认）/ dreams / reviews / all' },
       name: { type: 'string', description: '文件名（可省，默认带日期）' },
+      year: { type: 'number', description: '只导某一年（如 2026）' },
+      month: { type: 'string', description: '只导某月，形如 "2026-10"（给了 year 就不必再给 month）' },
     },
     async execute(args) {
       const scope = String(args.scope || 'thoughts')
-      const list = scope === 'all' ? loadAll()
+      let list = scope === 'all' ? loadAll()
         : (scope === 'dreams' ? loadDreams()
           : (scope === 'reviews' ? loadReviews() : loadThoughts()))
+      const year = args.year ? Number(args.year) : 0
+      const month = args.month ? String(args.month) : ''
+      if (year || month) list = filterByRange(list, { year, month })
       if (!list.length) return { ok: false, error: scope === 'dreams' ? '库里还没有梦记' : '库里还没有数据，先 qzone_echo_sync' }
       if (String(args.format || 'md').toLowerCase() === 'json') {
-        const r = exportJson(list)
+        const r = exportJson(list, { year, month })
         return { ok: true, ...r, scope }
       }
       const r = exportMarkdown(list, {
@@ -384,6 +397,7 @@ export function apply(ctx, config, cfgIn) {
         onlyDreams: scope === 'dreams',
         onlyReviews: scope === 'reviews',
         name: args.name ? String(args.name) : '',
+        year, month,
       })
       return { ok: true, ...r, scope }
     },
@@ -695,16 +709,20 @@ export function apply(ctx, config, cfgIn) {
     if (path === '/export' && req.method === 'POST') {
       const body = await readBody(req)
       const scope = String(body.scope || 'thoughts')
-      const list = scope === 'all' ? loadAll()
+      const year = body.year ? Number(body.year) : 0
+      const month = body.month ? String(body.month) : ''
+      let list = scope === 'all' ? loadAll()
         : (scope === 'dreams' ? loadDreams()
           : (scope === 'reviews' ? loadReviews() : loadThoughts()))
+      if (year || month) list = filterByRange(list, { year, month })
       if (!list.length) return sendJson(res, 400, { ok: false, error: scope === 'dreams' ? '库里还没有梦记' : '库里还没有数据' })
       const r = String(body.format || 'md').toLowerCase() === 'json'
-        ? exportJson(list)
+        ? exportJson(list, { year, month })
         : exportMarkdown(list, {
           onlyThoughts: scope === 'thoughts',
           onlyDreams: scope === 'dreams',
           onlyReviews: scope === 'reviews',
+          year, month,
         })
       return sendJson(res, 200, { ok: true, ...r, scope })
     }

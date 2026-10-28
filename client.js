@@ -157,9 +157,10 @@ window.__ModuleLoader__.load({
     }
     const fmtTime = (ts) => {
       if (!ts) return '时间未知'
-      const d = new Date(ts * 1000)
+      // 说说时间戳是北京时间，客户端也按东八区拆，别用浏览器时区（海外访问会差一天）
+      const d = new Date(ts * 1000 + 8 * 3600000)
       const p = (n) => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+      return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
     }
 
     function Panel() {
