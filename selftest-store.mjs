@@ -41,6 +41,8 @@ mergeMoments([
     alive: 1,
     verifiedAt: '2026-10-01T00:00:00Z',
     raw: { huge: 'raw json' },
+    // deAt 之前的原文：`@{uin:...,nick:...}` 内嵌码里带着别人的 QQ 号
+    rawContent: '@{uin:1000000001,nick:张三,who:1,auto:1}这是一条正常说说',
     conlist: [{ type: 2, con: '原文' }],
     has_more_con: 1,
     name: '张三',
@@ -50,7 +52,7 @@ mergeMoments([
 // writeFeed 落盘也要剥
 writeFeed(loadAll())
 const onDisk = loadAll()[0]
-for (const f of ['uin', 'lbs', 'secret', 'wbid', 'alive', 'verifiedAt', 'raw', 'conlist', 'has_more_con', 'name']) {
+for (const f of ['uin', 'lbs', 'secret', 'wbid', 'alive', 'verifiedAt', 'raw', 'conlist', 'has_more_con', 'name', 'rawContent']) {
   assert.equal(onDisk[f], undefined, `落盘不能有隐私/死字段：${f}`)
 }
 console.log('① 落盘隐私字段已剥净')
